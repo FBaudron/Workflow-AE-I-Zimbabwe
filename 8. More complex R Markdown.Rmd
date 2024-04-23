@@ -1,0 +1,3156 @@
+---
+title: "Mbire Baseline Survey Report"
+author: "Frédéric Baudron, Telma Sibanda, Dorcas Matangi, Vimbayi Chimonyo"
+date: "5/26/2023"
+output:
+  pdf_document:
+    extra_dependencies: ["flafter"]
+---
+
+
+```{r setup, include=FALSE}
+
+knitr::opts_chunk$set(fig.width = 9, fig.height = 9,fig.path = 'Figs Mbire/',
+                      echo = FALSE, warning = FALSE, message = FALSE)
+
+```
+
+
+```{r tot}
+
+library(sf)
+library(raster)
+library(ggspatial)
+library(ggplot2)
+library(ggthemes)
+library(gtsummary)
+library(tidyr)
+library(dplyr)
+library(egg)
+library(cowplot)
+
+
+setwd('D:\\Mes Donnees\\2. CIMMYT\\2. Agroeco IDT\\zz. R training\\')
+
+data = read.csv("Input files\\Survey.csv")
+
+data = subset(data, subset = district == "Mbire")
+
+panel = subset(data, subset = panel == "1")
+
+```
+
+# 1. Introduction
+
+This document reports the results of a survey of `r nrow(data)` households conducted between the 12th and 17th of December 2022 in Wards 2 and 3 of Mbire District (Fig.1), including `r nrow(panel)` households that were interviewed two years ago.
+
+# 2. Study area
+
+```{r fig1, fig.width = 8, fig.height = 4.5, fig.cap = "Location of the households surveyed in the Wards 2 and 3 of Mbire District"}
+
+ADMIN2 = read_sf("Input files\\zwe_admbnda_adm2_zimstat_ocha_20180911\\zwe_admbnda_adm2_zimstat_ocha_20180911.shp")
+ADMIN3 = read_sf("Input files\\zwe_admbnda_adm3_zimstat_ocha_20180911\\zwe_admbnda_adm3_zimstat_ocha_20180911.shp")
+
+ELZIMMSK = raster("Input files\\ZWE_alt\\ZWE_alt.gri")
+ELZIMMSK_df = as.data.frame(ELZIMMSK, xy = TRUE)
+
+RIVERS = read_sf("Input files\\ZWE_wat\\ZWE_water_lines_dcw.shp")
+LAKES = read_sf("Input files\\ZWE_wat\\ZWE_water_areas_dcw.shp")
+
+MR <- subset(ADMIN3, subset = ADM2_EN == "Mbire")
+SITE_MR <- subset(MR, subset = ADM3_EN == "2" | ADM3_EN == "3")
+WD_MR <- st_centroid(MR)
+WD_MR <- cbind(WD_MR, st_coordinates(st_centroid(WD_MR$geometry)))
+
+data_sf = st_as_sf(data , coords = c("lon", "lat"), crs ="+proj=longlat + datum = WGS84 + no_defs")
+
+ggplot() + 
+  # ggtitle("Mbire") +
+  geom_raster(data = na.omit(ELZIMMSK_df), aes(x = x, y = y, fill = ZWE_alt)) +
+  geom_sf(data = RIVERS, color = "blue") +
+  geom_sf(data = LAKES, color = "blue", fill = "blue") +
+  geom_sf(data = SITE_MR, fill = "grey", linewidth = 1, color = NA, alpha = 0.5) +
+  geom_sf(data = MR, fill = NA, linewidth = 1, color = "black") +
+  geom_sf(data = data_sf, color = "#781C6DFF", alpha = 0.5 , size = 0.8) +
+  geom_text(data= WD_MR, aes(x = X , y = Y + 0.018, label = ADM3_EN),
+            color = "black", fontface = "bold.italic", size = 3, check_overlap = FALSE) +
+  scale_fill_distiller(palette = "RdYlGn", limits = c(300, 1450)) +
+  theme_few() + xlab("") + ylab("") +
+  theme(plot.title = element_text(hjust = 0.5, size = 18, face = "bold", margin = margin(0, 0, 10, 0)),
+        legend.title = element_text(margin = margin(0, 0, 10, 0)),
+        axis.text.y = element_text(angle = 90, hjust=0.5, size = 12),
+        axis.text.x = element_text(size = 9))+ 
+  coord_sf(xlim = c(30.02, 31.15), ylim = c(-16.42, -15.62)) +
+  labs(fill = "Elevation (m.a.s.l.)") +
+  annotation_scale(location = "tr", width_hint = 0.5) +
+  annotation_north_arrow(location = "br", which_north = "true", 
+                         pad_x = unit(0.75, "cm"), pad_y = unit(0.5, "cm"),
+                         style = north_arrow_fancy_orienteering)
+
+```
+
+
+\newpage
+
+
+# 3. Demographics
+
+## 3.1. Respondents
+
+
+```{r tab1}
+
+resp = data[, c(1, 7, 16:19)]
+
+resp[, -c(1)] %>%
+  tbl_summary(
+    by = ward,
+    statistic = list(all_continuous() ~ "{mean} ({sd})",
+                     all_categorical() ~ "{p}%"),
+    missing = "no",
+    digits = all_continuous() ~ 1,
+    label = list(rel_to_hhh ~ "Relationship of the respondents\nto heads of households",
+                 age_resp ~  "Age of respondents",
+                 sex_resp ~  "Sex of respondents",
+                 edu_resp ~  "Highest education of respondents"))%>%
+  add_overall()%>%
+  modify_caption("Profile of the respondents")
+
+```
+
+
+## 3.2. Heads of households
+
+
+```{r tab2}
+
+head = data[, c(1, 7, 11:15)]
+
+head[, -c(1)] %>%
+  tbl_summary(
+    by = ward,
+    statistic = list(all_continuous() ~ "{mean} ({sd})",
+                     all_categorical() ~ "{p}%"),
+    missing = "no",
+    digits = all_continuous() ~ 1,
+    label = list(age_hhh ~  "Age of heads of households",
+                 sex_hhh ~  "Sex of heads of households",
+                 mar_hhh ~  "Marrital status of heads households",
+                 mar_type ~ "Type of marriage\n(for heads of households who are married)",
+                 edu_hhh ~  "Highest education of heads of households"))%>%
+  add_overall()%>%
+  modify_caption("Profile of heads of  households")
+
+```
+
+
+\newpage
+
+
+## 3.3. Household composition
+
+
+```{r tab3}
+
+comp = data[, c(1, 7, 20:29)]
+
+comp$elderly = comp$total_number_of_adult_males_aged_61_or_more + comp$total_number_of_adult_females_aged_61_or_more
+comp$adult = comp$total_number_of_adult_males_aged_25_60 + comp$total_number_of_adult_females_aged_25_60
+comp$youth = comp$total_number_of_young_males_aged_15_25 + comp$total_number_of_young_females_aged_15_25
+
+comp$family_size = comp$elderly + comp$adult + comp$youth + comp$total_number_of_children_and_teens_aged_3_14 + comp$total_number_of_infants_of_age_0_to_2
+
+
+comp[, c(2, 16, 13:15, 9:12)] %>%
+  tbl_summary(
+    by = ward,
+    statistic = list(all_continuous() ~ "{mean} ({sd})",
+                     all_categorical() ~ "{p}%"),
+    type = list(family_size ~ "continuous",
+                elderly ~ "continuous",
+                adult ~ "continuous",
+                youth ~ "continuous",
+                total_number_of_children_and_teens_aged_3_14 ~ "continuous",
+                total_number_of_infants_of_age_0_to_2 ~ "continuous"),
+    missing = "no",
+    digits = all_continuous() ~ 1,
+    label = list(family_size ~ "Total family size",
+                 elderly ~ "Total number of elderly (aged 61 or more)",
+                 adult ~ "Total number of adults (aged 26 to 60)",
+                 youth ~ "Total number of youth (aged 15 to 25)",
+                 total_number_of_children_and_teens_aged_3_14 ~ "Total number of children and teens (aged 3 to 14)",
+                 total_number_of_infants_of_age_0_to_2 ~ "Total number of infants (aged 0 to 2)",
+                 are_there_relatives_outside_the_household_who_help_financially ~ "Relatives outside the household helping finantially",
+                 are_there_relatives_outside_the_household_who_depends_on_the_household_financially_e_g_elderly_sick ~ "Relatives outside the household depending on it finantially"))%>%
+  add_overall()%>%
+  modify_caption("Household composition")
+
+```
+
+
+```{r fig2, fig.width = 8, fig.height = 4, fig.cap = "Household composition (the dashed grey line represents the mean number of household members across the sample)"}
+
+comp_long = comp[, c(1, 13:15, 9:10)]
+names(comp_long) = c("ID", "Elderly", "Adults", "Youth", "Children & teens", "Infants")
+comp_long = gather(comp_long, class, nb, "Elderly":"Infants")
+
+
+comp_long %>%
+  ggplot(aes(x = reorder(ID, -nb, sum), y = nb, fill = as.factor(class))) +
+  geom_bar(stat = 'identity', width = 1, colour = "black", linewidth = 0.025, position = position_stack(reverse = TRUE)) +
+  scale_fill_viridis_d(option = "B", name = "Age class") +
+  geom_hline(yintercept = mean(comp$family_size), linetype = "dashed", color = "grey50", linewidth = 1) +
+  xlab("Households") + ylab("Number of family members") + 
+  theme_few() +
+  theme(plot.title = element_blank(),
+        axis.text.x = element_blank(),
+        axis.text.y = element_text(size = 12,  face = "bold"),
+        axis.title.x = element_text(size = 14, face = "bold"),
+        axis.title.y = element_text(size = 14, face = "bold", margin = margin(0, 10, 0, 0)),
+        axis.ticks.x = element_blank(),
+        panel.border = element_blank(),
+        legend.title = element_text(size = 14, face = "bold"),
+        legend.text = element_text(size = 12),
+        legend.position = c(0.9, 0.9), legend.justification = c(0.9, 0.9)) 
+
+```
+
+
+\newpage
+
+
+# 4. Capital
+
+# 4.1. Equipment
+
+
+```{r tab4}
+
+equi = data[, c(1, 7, 30:40)]
+
+equi$nb_of_tractors = ifelse(equi$nb_of_tractors > 0, 1, 0)
+equi$nb_of_two_wheel_tractors = ifelse(equi$nb_of_two_wheel_tractors > 0, 1, 0)
+equi$nb_of_ploughs = ifelse(equi$nb_of_ploughs > 0, 1, 0)
+equi$nb_of_cultivators = ifelse(equi$nb_of_cultivators > 0, 1, 0)
+equi$nb_of_scotchcarts = ifelse(equi$nb_of_scotchcarts > 0, 1, 0)
+equi$nb_of_wheelbarows = ifelse(equi$nb_of_wheelbarows > 0, 1, 0)
+equi$nb_of_metal_siloes_or_other_improved_storage_facility = ifelse(equi$nb_of_metal_siloes_or_other_improved_storage_facility > 0, 1, 0)
+equi$nb_of_solar_panels = ifelse(equi$nb_of_solar_panels > 0, 1, 0)
+equi$nb_of_biogas_digester = ifelse(equi$nb_of_biogas_digester > 0, 1, 0)
+equi$nb_of_green_houses = ifelse(equi$nb_of_green_houses > 0, 1, 0)
+equi$nb_of_motorized_grinding_mill = ifelse(equi$nb_of_motorized_grinding_mill > 0, 1, 0)
+
+equi[, -c(1)] %>%
+  tbl_summary(
+    by = ward,
+    statistic = list(all_continuous() ~ "{mean} ({sd})",
+                     all_categorical() ~ "{p}%"),
+    missing = "no",
+    digits = all_continuous() ~ 1,
+    label = list(nb_of_tractors ~ "Owing one or more tractor",
+                 nb_of_two_wheel_tractors ~  "Owning one or more two-wheel tractor",
+                 nb_of_ploughs ~  "Owning one or more plough",
+                 nb_of_cultivators ~  "Owning one or more cultivator", 
+                 nb_of_scotchcarts ~ "Owning one or more scotchart",
+                 nb_of_wheelbarows ~  "Owning one or more wheelbarrow",
+                 nb_of_metal_siloes_or_other_improved_storage_facility ~  "Owning one or more metal siloes/\nimproved storage facility",
+                 nb_of_solar_panels ~ "Owning one or more solar panels",
+                 nb_of_biogas_digester ~  "Owning one or more biogas digigester",
+                 nb_of_green_houses ~  "Owning one or more green house",
+                 nb_of_motorized_grinding_mill ~  "Owning one or more motorized grinding mill"))%>%
+  add_overall()%>%
+  modify_caption("Equipment ownership")
+
+```
+
+
+## 4.2. Land allocation
+
+
+```{r tab5}
+
+land = data[, c(1, 7, 41:42, 48:69)]
+
+names(land) = c("ID", "ward", "cropped_area", "fallow", "maize", "sorghum", "pearl_millet",
+                "finger_millet", "sesame", "groundnut", "tobacco", "cotton",
+                "potato", "sweet_potato", "sunflower", "soybean", "common_bean",
+                "cowpea", "roundnut", "sunnhemp", "mucuna", "lablab", "pigeonpea",
+                "pumpkin", "rosella", "runinga")
+
+
+land$small_grains = land$sorghum + land$pearl_millet + land$finger_millet
+land$legumes = land$groundnut + land$soybean + land$common_bean + land$cowpea + land$roundnut
+land$other = land$sesame + land$tobacco + land$cotton + land$potato + land$sweet_potato +
+  land$sunflower
+
+land$other = ifelse(land$other > land$cropped_area - land$maize - land$small_grains - land$legumes, land$other,
+                    land$cropped_area - land$maize - land$small_grains - land$legumes)
+
+land[, -c(1, 6:26)] %>%
+  tbl_summary(
+    by = ward,
+    statistic = list(all_continuous() ~ "{mean} ({sd})",
+                     all_categorical() ~ "{p}%"),
+    missing = "no",
+    digits = all_continuous() ~ 1,
+    label = list(cropped_area ~ "Cropped area (ha)",
+                 fallow ~ "Fallow area (ha)",
+                 maize ~ "Maize area (ha)",
+                 small_grains ~ "Small grains area (ha)",
+                 legumes ~ "Legumes area (ha)",
+                 other ~ "Area under other crops (ha)"))%>%
+  add_overall()%>%
+  modify_caption("Land allocation")
+
+```
+
+
+```{r fig3, fig.width = 8, fig.height = 4, fig.cap = "Land allocation (the dashed grey line represents the mean cultivated area per farm)"}
+
+land_long = land[, c(1, 5, 27:29)]
+names(land_long) = c("ID", "Maize area", "Small grains area", "Legumes area", "Area under other crops")
+land_long = gather(land_long, crop, area, "Maize area":"Area under other crops")
+
+
+land_long %>%
+  ggplot(aes(x = reorder(ID, -area, sum), y = area, fill = as.factor(crop))) +
+  geom_bar(stat = 'identity', width = 1, color = "black", linewidth = 0.025, position = position_stack(reverse = TRUE)) +
+  scale_fill_viridis_d(option = "B", name = "Crops") +
+  geom_hline(yintercept = mean(land$cropped_area), linetype = "dashed", color = "grey50", linewidth = 1) +
+  xlab("Farms") + ylab("Cropland area (ha)") + 
+  theme_few() +
+  theme(plot.title = element_blank(),
+        axis.text.x = element_blank(),
+        axis.text.y = element_text(size = 12,  face = "bold"),
+        axis.title.x = element_text(size = 14, face = "bold"),
+        axis.title.y = element_text(size = 14, face = "bold", margin = margin(0, 10, 0, 0)),
+        axis.ticks.x = element_blank(),
+        panel.border = element_blank(),
+        legend.title = element_text(size = 14, face = "bold"),
+        legend.text = element_text(size = 12),
+        legend.position = c(0.9, 0.9), legend.justification = c(0.9, 0.9)) 
+
+```
+
+
+## 4.3. Livestock ownership
+
+
+```{r tab6}
+
+liv = data[, c(1, 7, 309:328)]
+
+liv$cattle = liv$how_many_adult_indigenous_cattle_do_you_currently_own + liv$how_many_improved_beef_cattle_do_you_currently_own +
+  liv$how_many_improved_dairy_cattle_do_you_currently_own + liv$how_many_juvenile_cattle_3_yr_old_indigenous_and_improved_do_you_currently_own
+
+liv$small_rum = liv$how_many_indigenous_goats_do_you_currently_own + liv$how_many_improved_goats_do_you_currently_own +
+  liv$how_many_sheep_do_you_currently_own
+
+liv$poultry = liv$how_many_indigenous_chickens_do_you_currently_own + liv$how_many_layer_chickens_do_you_currently_own +
+  liv$how_many_broiler_chickens_do_you_currently_own + liv$how_many_guinea_fowls_do_you_currently_own +
+  liv$how_many_turkeys_do_you_currently_own + liv$how_many_ducks_do_you_currently_own +
+  liv$how_many_geese_do_you_currently_own
+
+
+liv[, c(2, 23, 7, 24, 11, 25, 19:22)] %>%
+  tbl_summary(
+    by = ward,
+    statistic = list(all_continuous() ~ "{mean} ({sd})",
+                     all_categorical() ~ "{p}%"),
+    missing = "no",
+    type = list(how_many_donkeys_do_you_currently_own ~ "continuous",
+                how_many_pigs_do_you_currently_own ~ "continuous",
+                how_many_bee_hives_do_you_currently_own ~ "continuous",
+                how_many_rabbits_do_you_currently_own ~ "continuous"),
+    digits = all_continuous() ~ 1,
+    label = list(cattle	 ~ "Cattle (n°)",
+                how_many_donkeys_do_you_currently_own ~ "Donkeys (n°)",
+                small_rum ~ "Small ruminants (n°)",
+                how_many_pigs_do_you_currently_own ~ "Pigs (n°)",
+                poultry ~ "poultry (n°)",
+                how_many_pigeons_do_you_currently_own ~ "Pigeons (n°)",
+                how_many_rabbits_do_you_currently_own ~ "Rabbits (n°)",
+                how_many_bee_hives_do_you_currently_own ~ "Bee hives (n°)",
+                do_you_have_a_fish_pond ~ "Owning a fish pond"))%>%
+  add_overall()%>%
+  modify_caption("Livestock ownership")
+
+```
+
+
+```{r fig4, fig.width = 8, fig.height = 4, fig.cap = "Herd composition in Tropical Livestock Units (using a value of 250 kg live weight for one TLU, after Houérou and Hoste (1977); the dashed grey line represents the mean livestock ownership per farm)"}
+
+tlu = liv[, c(1, 23, 7, 24, 11, 25)]
+
+names(tlu) = c("ID", "Cattle", "Donkeys", "Small ruminants", "Pigs", "Poultry")
+
+tlu$Cattle = 0.7 * tlu$Cattle
+tlu$Donkeys = 0.5 * tlu$Donkeys
+tlu$`Small ruminants` = 0.2 * tlu$`Small ruminants`
+tlu$Pigs = 0.2 * tlu$Pigs
+tlu$Poultry = 0.01 * tlu$Poultry
+tlu$TLU = tlu$Cattle + tlu$Donkeys + tlu$`Small ruminants` + tlu$Pigs + tlu$Poultry
+
+tlu_long = gather(tlu[,-c(7)], species, tlu, "Cattle":"Poultry")
+
+tlu_long %>%
+  ggplot(aes(x = reorder(ID, -tlu, sum), y = tlu, fill = as.factor(species))) +
+  geom_bar(stat = 'identity', width = 1, color = "black", linewidth = 0.025, position = position_stack(reverse = TRUE)) +
+  scale_fill_viridis_d(option = "B", name = "Species") +
+  geom_hline(yintercept = mean(tlu$TLU), linetype = "dashed", color = "grey50", linewidth = 1) +
+  xlab("Farms") + ylab("Livestock ownership (TLU)") + 
+  theme_few() +
+  theme(plot.title = element_blank(),
+        axis.text.x = element_blank(),
+        axis.text.y = element_text(size = 12,  face = "bold"),
+        axis.title.x = element_text(size = 14, face = "bold"),
+        axis.title.y = element_text(size = 14, face = "bold", margin = margin(0, 10, 0, 0)),
+        axis.ticks.x = element_blank(),
+        panel.border = element_blank(),
+        legend.title = element_text(size = 14, face = "bold"),
+        legend.text = element_text(size = 12),
+        legend.position = c(0.9, 0.9), legend.justification = c(0.9, 0.9)) 
+
+```
+
+
+\newpage
+
+
+# 5. Gardening
+
+## 5.1. Individual garden
+
+
+```{r tab7}
+
+igar = data[, c(1, 7, 86:128)]
+
+igar$area_ha_of_the_garden = ifelse(igar$area_ha_of_the_garden == 0, NA, igar$area_ha_of_the_garden)
+
+igar$quantity_kg_of_basal_fertilizer_applied_to_the_garden_in_the_last_12_months[is.na(igar$quantity_kg_of_basal_fertilizer_applied_to_the_garden_in_the_last_12_months)] = 0
+igar$quantity_kg_of_topdressing_fertilizer_applied_to_the_garden_in_the_last_12_months[is.na(igar$quantity_kg_of_topdressing_fertilizer_applied_to_the_garden_in_the_last_12_months)] = 0
+igar$quantity_kg_of_manure_applied_to_the_garden_in_the_last_12_months[is.na(igar$quantity_kg_of_manure_applied_to_the_garden_in_the_last_12_months)] = 0
+igar$quantity_kg_of_compost_applied_to_the_garden_in_the_last_12_months[is.na(igar$quantity_kg_of_compost_applied_to_the_garden_in_the_last_12_months)] = 0
+
+
+igar$quantity_kg_of_basal_fertilizer_applied_to_the_garden_in_the_last_12_months =
+  ifelse(is.na(igar$area_ha_of_the_garden), NA,
+  igar$quantity_kg_of_basal_fertilizer_applied_to_the_garden_in_the_last_12_months /
+  igar$area_ha_of_the_garden)
+
+igar$quantity_kg_of_topdressing_fertilizer_applied_to_the_garden_in_the_last_12_months =
+  ifelse(is.na(igar$area_ha_of_the_garden), NA,
+  igar$quantity_kg_of_topdressing_fertilizer_applied_to_the_garden_in_the_last_12_months /
+  igar$area_ha_of_the_garden)
+
+igar$quantity_kg_of_manure_applied_to_the_garden_in_the_last_12_months =
+  ifelse(is.na(igar$area_ha_of_the_garden), NA,
+  igar$quantity_kg_of_manure_applied_to_the_garden_in_the_last_12_months /
+  igar$area_ha_of_the_garden)
+
+igar$quantity_kg_of_compost_applied_to_the_garden_in_the_last_12_months =
+  ifelse(is.na(igar$area_ha_of_the_garden), NA,
+  igar$quantity_kg_of_compost_applied_to_the_garden_in_the_last_12_months /
+  igar$area_ha_of_the_garden)
+  
+
+igar[, -c(1, 11:41)] %>%
+  tbl_summary(
+    by = ward,
+    statistic = list(all_continuous() ~ "{mean} ({sd})",
+                     all_categorical() ~ "{p}%"),
+    type = list(quantity_kg_of_topdressing_fertilizer_applied_to_the_garden_in_the_last_12_months ~ "continuous"),
+    missing = "no",
+    digits = all_continuous() ~ 1,
+    label = list(do_you_have_an_individual_garden	 ~ "Owning an individual garden",
+                 area_ha_of_the_garden ~ "Area of the garden (ha)",
+                 is_it_a_permanent_or_seasonal_garden ~ "Type of garden",
+                 what_source_of_irrigation_do_you_use_for_your_garden ~ "Water source",
+                 what_type_of_irrigation_do_you_use_on_your_garden ~ "Type of irrigation",
+                 what_type_of_water_extraction_do_you_use_on_your_garden ~ "Type of water extraction",
+                 is_your_garden_equiped_with_a_water_tank ~ "Presence of a water tank",
+                 do_you_harvest_rainwater ~ "Rainwater harvesting",
+                 quantity_kg_of_basal_fertilizer_applied_to_the_garden_in_the_last_12_months ~ "Rate of basal fertilizer (kg/ha/year)",
+                 quantity_kg_of_topdressing_fertilizer_applied_to_the_garden_in_the_last_12_months ~ "Rate of top-dressing fertilizer (kg/ha/year)",
+                 quantity_kg_of_manure_applied_to_the_garden_in_the_last_12_months ~ "Rate of manure (kg/ha/year)",
+                 quantity_kg_of_compost_applied_to_the_garden_in_the_last_12_months ~ "Rate of compost (kg/ha/year)"))%>%
+  add_overall()%>%
+  modify_caption("Characteristics of individual gardens")
+
+```
+
+
+```{r fig5, fig.width = 8, fig.height = 5.5, fig.cap = "Crops found in individual gardens"}
+
+igar_sp = igar[,c(1, 11:41)]
+
+names(igar_sp) = c("ID", "Maize", "Common bean", "Sweet potato", "Tomato", "Onion", "Garlic", "Cabbage",
+                   "Rape", "Kovo", "Carrot", "Ocra", "Watermelon", "Cucumber", "Butternut", "Sugar cane",
+                   "Banana", "Pawpaw", "Nartje", "Tsunga", "Potato", "Peas", "African rice", "Strawberry",
+                   "Wheat", "Sugarloaf", "Rugare", "Shoeshine", "Chigumbeze", "Katarina", "Muboora",
+                   "Chili")
+
+igar_sp = gather(igar_sp, species, nb, "Maize":"Chili")
+
+igar_sp = aggregate(nb ~ species, FUN = sum, na.rm = TRUE, data = igar_sp)
+
+igar_sp = igar_sp[igar_sp$nb > 0,]
+
+
+igar_sp %>%
+  arrange(nb) %>%
+  mutate(order = factor(species, species)) %>%
+  ggplot( aes(x = species, y = nb)) + 
+  geom_segment( aes(x = order, xend = species, y = 0, yend = nb), color = "#781C6DFF", linewidth = 1) +
+  geom_point(color="#781C6DFF", size = 8, alpha = 0.5) +
+  xlab("Individual garden crops") + ylab("Nb of farms growing") +
+  theme_few() +
+  coord_flip() +
+  theme(axis.title.x = element_text(size = 14, face = "bold", margin = margin(10, 0, 0, 0)),
+        axis.title.y = element_text(size = 14, face = "bold", margin = margin(0, 10, 0, 0)),
+        axis.text.x = element_text(size = 12, face = "bold"),
+        axis.text.y = element_text(size = 10, face = "bold"))
+
+```
+
+
+## 5.2. Communal garden
+
+
+```{r tab8}
+
+cgar = data[, c(1, 7, 129:151)]
+
+cgar[, c(2:3)] %>%
+  tbl_summary(
+    by = ward,
+    statistic = list(all_continuous() ~ "{mean} ({sd})",
+                     all_categorical() ~ "{p}%"),
+    missing = "no",
+    digits = all_continuous() ~ 1,
+    label = list(do_you_have_access_to_a_community_garden	 ~ "Access to a community garden"))%>%
+  add_overall()%>%
+  modify_caption("Characteristics of communal gardens")
+
+```
+
+
+\newpage
+
+
+# 6. Food & income
+
+## 6.1. Main food & income sources
+
+
+```{r tab9}
+
+fisc = data[, c(1, 7, 444, 476)]
+
+names(fisc) = c("ID", "Ward", "Main food source", "Main income source")
+   
+fisc[, -c(1)] %>%
+  tbl_summary(
+    by = Ward,
+    statistic = list(all_continuous() ~ "{mean} ({sd})",
+                     all_categorical() ~ "{p}%"),
+    missing = "no",
+    digits = all_continuous() ~ 1)%>%
+  add_overall()%>%
+  modify_caption("Main food and income sources")
+
+```
+
+
+## 6.2. Food security
+
+
+```{r fig6, fig.width = 8, fig.height = 4, fig.cap = "Food security situation in the 12 months preceding the interview"}
+
+fsec = data[, c(1, 7, 458, 457, 456, 455, 454, 453, 452, 451, 450, 449, 448, 447)]
+
+names(fsec) = c("ID", "ward", "1.dec21", "2.jan22", "3.feb22", "4.mar22", "5.apr22",
+                "6.may22", "7.jun22", "8.jul22", "9.aug22", "z.sep22", "zz.oct22",
+                "zzz.nov22")
+
+fsec = gather(fsec, month, status, "1.dec21":"zzz.nov22")
+
+fsec$status = ifelse(fsec$status == "Low", "1.Low", fsec$status)
+fsec$status = ifelse(fsec$status == "Medium", "2.Medium", fsec$status)
+fsec$status = ifelse(fsec$status == "High", "3.High", fsec$status)
+
+ggplot(data = fsec) +
+  geom_count(mapping = aes(x = month, y = status), color="#781C6DFF", alpha = 0.5) +
+    scale_size_area(max_size = 10) +
+  theme_few() + xlab("") + ylab("Food security status") +
+  theme(axis.title.x = element_blank(),
+        axis.title.y = element_text(size = 14, face = "bold", margin = margin(0, 10, 0, 0)),
+        axis.text.x = element_text(size = 12, face = "bold", angle = 90, hjust = 1, vjust = 0.5),
+        axis.text.y = element_text(size = 12, face = "bold"),
+        legend.title = element_text(size = 14, face = "bold"),
+        legend.text = element_text(size = 12)) +
+  scale_x_discrete(labels = c("Dec 21", "Jan 22", "Feb 22", "Mar 22", "Apr 22", "May 22",
+                              "Jun 22", "Jul 22", "Aug 22", "Sep 22", "Oct 22", "Nov 22")) +
+  scale_y_discrete(labels = c("Low", "Medium", "High"))
+  
+```
+
+
+\newpage
+
+
+## 6.3. Dietary diversity
+
+```{r tab10}
+
+ddiv = data[, c(1, 7, 459:475)]
+
+ddiv$cereals = ifelse(ddiv$cereals == "Yes", 1, 0)
+ddiv$white_roots_and_tubers = ifelse(ddiv$white_roots_and_tubers == "Yes", 1, 0)
+ddiv$vitamin_a_rich_vegetables_and_tubers = ifelse(ddiv$vitamin_a_rich_vegetables_and_tubers == "Yes", 1, 0)
+ddiv$dark_green_leafy_vegetables = ifelse(ddiv$dark_green_leafy_vegetables == "Yes", 1, 0)
+ddiv$other_vegetables = ifelse(ddiv$other_vegetables == "Yes", 1, 0)
+ddiv$vitamin_a_rich_fruits = ifelse(ddiv$vitamin_a_rich_fruits == "Yes", 1, 0)
+ddiv$other_fruits = ifelse(ddiv$other_fruits == "Yes", 1, 0)
+ddiv$organ_meat = ifelse(ddiv$organ_meat == "Yes", 1, 0)
+ddiv$flesh_meat = ifelse(ddiv$flesh_meat == "Yes", 1, 0)
+ddiv$eggs = ifelse(ddiv$eggs == "Yes", 1, 0)
+ddiv$fish_and_seafood = ifelse(ddiv$fish_and_seafood == "Yes", 1, 0)
+ddiv$legumes_nuts_and_seeds = ifelse(ddiv$legumes_nuts_and_seeds == "Yes", 1, 0)
+ddiv$milk_and_milk_products = ifelse(ddiv$milk_and_milk_products == "Yes", 1, 0)
+ddiv$oils_and_fats = ifelse(ddiv$oils_and_fats == "Yes", 1, 0)
+ddiv$sweets = ifelse(ddiv$sweets == "Yes", 1, 0)
+ddiv$spices_condiments_beverages = ifelse(ddiv$spices_condiments_beverages == "Yes", 1, 0)
+ddiv$outside_meal_or_snack = ifelse(ddiv$outside_meal_or_snack == "Yes", 1, 0)
+
+ddiv$vegetables = ddiv$vitamin_a_rich_vegetables_and_tubers + ddiv$dark_green_leafy_vegetables +
+  ddiv$other_vegetables
+
+ddiv$fruits = ddiv$vitamin_a_rich_fruits + ddiv$other_fruits
+
+ddiv$meat = ddiv$organ_meat + ddiv$flesh_meat
+
+ddiv$vegetables = ifelse(ddiv$vegetables > 0, 1, 0)
+ddiv$fruits = ifelse(ddiv$fruits > 0, 1, 0)
+ddiv$meat = ifelse(ddiv$meat > 0, 1, 0)
+
+ddiv$hdds = ddiv$cereals + ddiv$white_roots_and_tubers + ddiv$vegetables + ddiv$fruits +
+  ddiv$meat + ddiv$eggs + ddiv$fish_and_seafood + ddiv$legumes_nuts_and_seeds +
+  ddiv$milk_and_milk_products + ddiv$oils_and_fats + ddiv$sweets + ddiv$spices_condiments_beverages
+
+ddiv[which(ddiv$hdds == 0), ] =  NA
+
+ddiv[, c(2, 23, 3:19 )] %>%
+  tbl_summary(
+    by = ward,
+    statistic = list(all_continuous() ~ "{mean} ({sd})",
+                     all_categorical() ~ "{p}%"),
+    missing = "no",
+    type = list(hdds ~ "continuous"),
+    digits = all_continuous() ~ 1,
+    label = list(hdds	 ~ "24H household dietary diversity score (0-12)",
+                 cereals ~ "Consumption of cereals in the last 24H",
+                 white_roots_and_tubers ~ "Consumption of white roots and tubers in the last 24H",
+                 vitamin_a_rich_vegetables_and_tubers ~ "Consumption of vitamin A-rich vegetables & tubers in the last 24H",
+                 dark_green_leafy_vegetables ~ "Consumption of green leafy vegetables in the last 24H",
+                 other_vegetables ~ "Consumption of other vegetables in the last 24H",
+                 vitamin_a_rich_fruits ~ "Consumption of vitamin A-rich fruits in the last 24H",
+                 other_fruits ~ "Consumption of other fruits in the last 24H",
+                 organ_meat ~ "Consumption of organ meat in the last 24H",
+                 flesh_meat ~ "Consumption of flesh meat in the last 24H",
+                 eggs ~ "Consumption of eggs in the last 24H",
+                 fish_and_seafood ~ "Consumption of fish & seafood in the last 24H",
+                 legumes_nuts_and_seeds ~ "Consumption of legumes, nuts & seeds in the last 24H",
+                 milk_and_milk_products ~ "Consumption of milk & milk products in the last 24H",
+                 oils_and_fats ~ "Consumption of oils & fats in the last 24H",
+                 sweets ~ "Consumption of sweets in the last 24H",
+                 spices_condiments_beverages ~ "Consumption of spices, condiments & bevarages in the last 24H",
+                 outside_meal_or_snack ~ "Consumption of outside meal or snack in the last 24H"))%>%
+  add_overall()%>%
+  modify_caption("Household dietary diversity (24H recall)")
+
+```
+
+
+\newpage
+
+
+# 7. Priority commodities
+
+## 7.1. Maize
+
+
+```{r maize}
+
+maiz = data[, c(1, 7, 48, 177:198)]
+
+maiz = maiz[maiz$area_ha_cropped_in_maize_during_the_season_2021_22 > 0,]
+
+maiz$quantity_kg_of_basal_fertilizer_applied_to_maize_in_the_season_2021_22 = 
+  maiz$quantity_kg_of_basal_fertilizer_applied_to_maize_in_the_season_2021_22 /
+  maiz$area_ha_cropped_in_maize_during_the_season_2021_22
+
+maiz$quantity_kg_of_topdressing_fertilizer_applied_to_maize_in_the_season_2021_22 = 
+  maiz$quantity_kg_of_topdressing_fertilizer_applied_to_maize_in_the_season_2021_22 /
+  maiz$area_ha_cropped_in_maize_during_the_season_2021_22
+
+maiz$quantity_kg_of_manure_applied_to_maize_in_the_season_2021_22 = 
+  maiz$quantity_kg_of_manure_applied_to_maize_in_the_season_2021_22 /
+  maiz$area_ha_cropped_in_maize_during_the_season_2021_22
+
+maiz$total_maize_production_in_the_season_2021_22_kg = 
+  maiz$total_maize_production_in_the_season_2021_22_kg /
+  maiz$area_ha_cropped_in_maize_during_the_season_2021_22
+
+maiz$quantity_kg_of_compost_applied_to_maize_in_the_season_2021_22 = 
+  maiz$quantity_kg_of_compost_applied_to_maize_in_the_season_2021_22 /
+  maiz$area_ha_cropped_in_maize_during_the_season_2021_22
+
+```
+
+
+Maize was farmed by `r round(nrow(maiz)*100/nrow(data), 1)`% of the households in Mbire during the 2021-22 season. 
+
+\
+
+
+```{r tab11}
+
+maiz[, c(2, 3, 12, 4:11, 23)] %>%
+  tbl_summary(
+    by = ward,
+    statistic = list(all_continuous() ~ "{mean} ({sd})",
+                     all_categorical() ~ "{p}%"),
+    type = list(total_number_of_pesticide_treatments_applied_to_maize_in_the_season_2021_22 ~ "continuous",
+                quantity_kg_of_compost_applied_to_maize_in_the_season_2021_22 ~ "continuous"),
+    missing = "no",
+    digits = all_continuous() ~ 1,
+    label = list(area_ha_cropped_in_maize_during_the_season_2021_22	 ~ "Maize area (ha)",
+                 total_maize_production_in_the_season_2021_22_kg ~ "Maize yield (kg/ha)",
+                 main_mode_of_land_preparation_for_maize_in_the_season_2021_22 ~ "Main mode of land preparation",
+                 quantity_kg_of_basal_fertilizer_applied_to_maize_in_the_season_2021_22	 ~ "Rate of basal fertilizer (kg/ha)",
+                 quantity_kg_of_topdressing_fertilizer_applied_to_maize_in_the_season_2021_22 ~ "Rate of top-dressing fertilizer (kg/ha)",
+                 quantity_kg_of_manure_applied_to_maize_in_the_season_2021_22 ~ "Rate of manure (kg/ha)",
+                 quantity_kg_of_compost_applied_to_maize_in_the_season_2021_22 ~ "Rate of compost (kg/ha)",
+                 main_mode_of_maize_weeding_in_the_season_2021_22	 ~ "Main mode of weeding",
+                 total_number_of_pesticide_treatments_applied_to_maize_in_the_season_2021_22 ~ "Number of pesticide treatments",
+                 did_you_use_biopesticides_on_your_maize_crop_in_the_season_2021_22 ~ "Use of biopesticides",
+                 x1st_choice_197 ~ "Main market"))%>%
+  add_overall()%>%
+  modify_caption("Characteristic of maize cropping")
+
+```
+
+
+```{r fig7, fig.width = 5.5, fig.height = 3, fig.cap = "Maize residue use"}
+
+maiz_res = maiz[, c(1:2, 13:19)]
+
+names(maiz_res) = c("ID", "Ward", "Burnt", "Retained in the field", "Grazed in the field",
+                    "Harvested for feed", "Harvested for compost", "Harvested for fuel",
+                    "Harvested for fencing")
+
+maiz_res = gather(maiz_res, use, perc, "Burnt":"Harvested for fencing")
+
+maiz_res$perc = as.numeric(maiz_res$perc)
+maiz_res$perc = 100 * maiz_res$perc
+
+maiz_res = aggregate(perc ~ use, FUN = mean, na.rm = TRUE, data = maiz_res)
+
+maiz_res = maiz_res[maiz_res$perc > 0,]
+
+ggplot(maiz_res, aes(x = "", y = perc, fill = use)) + 
+  geom_bar(alpha = 0.5, width = 1, stat = "identity", color = "black") +
+  coord_polar("y", start = 0) + theme_few() + 
+  scale_fill_viridis_d(option = "B", name = "Residue use") +
+  theme(plot.title = element_blank(),
+        axis.title.x = element_blank(),
+        axis.title.y = element_blank(),
+        panel.border = element_blank(),
+        panel.grid=element_blank(),  
+        axis.ticks = element_blank(),
+        axis.text = element_blank(),
+        legend.text = element_text(size = 10), 
+        legend.title = element_text(size = 12, face = "bold"),
+        legend.position = "right") 
+
+```
+
+
+```{r fig8, fig.width = 8, fig.height = 5.5, fig.cap = "Animals causing damage to maize"}
+
+maiz_pest1 = maiz[, c(1:2, 20)]
+maiz_pest2 = maiz[, c(1:2, 21)]
+maiz_pest3 = maiz[, c(1:2, 22)]
+
+names(maiz_pest1) = c("ID", "Ward", "Pest")
+names(maiz_pest2) = c("ID", "Ward", "Pest")
+names(maiz_pest3) = c("ID", "Ward", "Pest")
+
+maiz_pest = rbind(maiz_pest1, maiz_pest2, maiz_pest3)
+
+maiz_pest$n = rep(1, nrow(maiz_pest))
+
+maiz_pest = aggregate(n ~ Pest, FUN = sum, na.rm = TRUE, data = maiz_pest[, c(3:4)])
+
+maiz_pest = maiz_pest[which(maiz_pest$Pest != "None"), ]
+
+maiz_pest %>%
+  arrange(n) %>%
+  mutate(order = factor(Pest, Pest)) %>%
+  ggplot( aes(x = Pest, y = n)) + 
+  geom_segment( aes(x = order, xend = Pest, y = 0, yend = n), color = "#781C6DFF", linewidth = 1) +
+  geom_point(color="#781C6DFF", size = 8, alpha = 0.5) +
+  xlab("Species causing damage to maize") + ylab("Nb of farms affected") +
+  theme_few() +
+  coord_flip() +
+  theme(axis.title.x = element_text(size = 14, face = "bold", margin = margin(10, 0, 0, 0)),
+        axis.title.y = element_text(size = 14, face = "bold", margin = margin(0, 10, 0, 0)),
+        axis.text.x = element_text(size = 12, face = "bold"),
+        axis.text.y = element_text(size = 10, face = "bold"))
+
+```
+
+
+\newpage
+
+
+## 7.2. Sorghum
+
+
+```{r sorghum}
+
+sorg = data[, c(1, 7, 49, 199:220)]
+
+sorg = sorg[sorg$area_ha_cropped_in_sorghum_during_the_season_2021_22 > 0,]
+
+sorg$quantity_kg_of_basal_fertilizer_applied_to_sorghum_in_the_season_2021_22 = 
+  sorg$quantity_kg_of_basal_fertilizer_applied_to_sorghum_in_the_season_2021_22 /
+  sorg$area_ha_cropped_in_sorghum_during_the_season_2021_22
+
+sorg$quantity_kg_of_topdressing_fertilizer_applied_to_sorghum_in_the_season_2021_22 = 
+  sorg$quantity_kg_of_topdressing_fertilizer_applied_to_sorghum_in_the_season_2021_22 /
+  sorg$area_ha_cropped_in_sorghum_during_the_season_2021_22
+
+sorg$quantity_kg_of_manure_applied_to_sorghum_in_the_season_2021_22 = 
+  sorg$quantity_kg_of_manure_applied_to_sorghum_in_the_season_2021_22 /
+  sorg$area_ha_cropped_in_sorghum_during_the_season_2021_22
+
+sorg$total_sorghum_production_in_the_season_2021_22_kg = 
+  sorg$total_sorghum_production_in_the_season_2021_22_kg /
+  sorg$area_ha_cropped_in_sorghum_during_the_season_2021_22
+
+sorg$quantity_kg_of_compost_applied_to_sorghum_in_the_season_2021_22 = 
+  sorg$quantity_kg_of_compost_applied_to_sorghum_in_the_season_2021_22 /
+  sorg$area_ha_cropped_in_sorghum_during_the_season_2021_22
+
+```
+
+
+Sorghum was farmed by `r round(nrow(sorg)*100/nrow(data), 1)`% of the households in Mbire during the 2021-22 season. 
+
+\
+
+
+```{r tab12}
+
+sorg[, c(2, 3, 12, 4:11, 23)] %>%
+  tbl_summary(
+    by = ward,
+    statistic = list(all_continuous() ~ "{mean} ({sd})",
+                     all_categorical() ~ "{p}%"),
+    type = list(area_ha_cropped_in_sorghum_during_the_season_2021_22	 ~ "continuous",
+                total_number_of_pesticide_treatments_applied_to_sorghum_in_the_season_2021_22 ~ "continuous",
+                quantity_kg_of_basal_fertilizer_applied_to_sorghum_in_the_season_2021_22	 ~ "continuous",
+                quantity_kg_of_topdressing_fertilizer_applied_to_sorghum_in_the_season_2021_22 ~ "continuous",
+                quantity_kg_of_manure_applied_to_sorghum_in_the_season_2021_22 ~ "continuous",
+                quantity_kg_of_compost_applied_to_sorghum_in_the_season_2021_22 ~ "continuous"),
+    missing = "no",
+    digits = all_continuous() ~ 1,
+    label = list(area_ha_cropped_in_sorghum_during_the_season_2021_22	 ~ "Sorghum area (ha)",
+                 total_sorghum_production_in_the_season_2021_22_kg ~ "Sorghum yield (kg/ha)",
+                 main_mode_of_land_preparation_for_sorghum_in_the_season_2021_22 ~ "Main mode of land preparation",
+                 quantity_kg_of_basal_fertilizer_applied_to_sorghum_in_the_season_2021_22	 ~ "Rate of basal fertilizer (kg/ha)",
+                 quantity_kg_of_topdressing_fertilizer_applied_to_sorghum_in_the_season_2021_22 ~ "Rate of top-dressing fertilizer (kg/ha)",
+                 quantity_kg_of_manure_applied_to_sorghum_in_the_season_2021_22 ~ "Rate of manure (kg/ha)",
+                 quantity_kg_of_compost_applied_to_sorghum_in_the_season_2021_22 ~ "Rate of compost (kg/ha)",
+                 main_mode_of_sorghum_weeding_in_the_season_2021_22	 ~ "Main mode of weeding",
+                 total_number_of_pesticide_treatments_applied_to_sorghum_in_the_season_2021_22 ~ "Number of pesticide treatments",
+                 did_you_use_biopesticides_on_your_sorghum_crop_in_the_season_2021_22 ~ "Use of biopesticides",
+                 x1st_choice_222 ~ "Main market"))%>%
+  add_overall()%>%
+  modify_caption("Characteristic of sorghum cropping")
+
+
+```
+
+
+```{r fig9, fig.width = 5.5, fig.height = 3, fig.cap = "Sorghum residue use"}
+
+sorg_res = sorg[, c(1:2, 13:19)]
+
+names(sorg_res) = c("ID", "Ward", "Burnt", "Retained in the field", "Grazed in the field",
+                    "Harvested for feed", "Harvested for compost", "Harvested for fuel",
+                    "Harvested for fencing")
+
+sorg_res = gather(sorg_res, use, perc, "Burnt":"Harvested for fencing")
+
+sorg_res$perc = as.numeric(sorg_res$perc)
+sorg_res$perc = 100 * sorg_res$perc
+
+sorg_res = aggregate(perc ~ use, FUN = mean, na.rm = TRUE, data = sorg_res)
+
+sorg_res = sorg_res[sorg_res$perc > 0,]
+
+ggplot(sorg_res, aes(x = "", y = perc, fill = use)) + 
+  geom_bar(alpha = 0.5, width = 1, stat = "identity", color = "black") +
+  coord_polar("y", start = 0) + theme_few() + 
+  scale_fill_viridis_d(option = "B", name = "Residue use") +
+  theme(plot.title = element_blank(),
+        axis.title.x = element_blank(),
+        axis.title.y = element_blank(),
+        panel.border = element_blank(),
+        panel.grid=element_blank(),  
+        axis.ticks = element_blank(),
+        axis.text = element_blank(),
+        legend.text = element_text(size = 10), 
+        legend.title = element_text(size = 12, face = "bold"),
+        legend.position = "right") 
+
+```
+
+
+```{r fig10, fig.width = 8, fig.height = 5.5, fig.cap = "Animals causing damage to sorghum"}
+
+
+sorg_pest1 = sorg[, c(1:2, 20)]
+sorg_pest2 = sorg[, c(1:2, 21)]
+sorg_pest3 = sorg[, c(1:2, 22)]
+
+names(sorg_pest1) = c("ID", "Ward", "Pest")
+names(sorg_pest2) = c("ID", "Ward", "Pest")
+names(sorg_pest3) = c("ID", "Ward", "Pest")
+
+sorg_pest = rbind(sorg_pest1, sorg_pest2, sorg_pest3)
+
+sorg_pest$n = rep(1, nrow(sorg_pest))
+
+sorg_pest = aggregate(n ~ Pest, FUN = sum, na.rm = TRUE, data = sorg_pest[, c(3:4)])
+
+sorg_pest = sorg_pest[which(sorg_pest$Pest != "None"), ]
+
+sorg_pest %>%
+  arrange(n) %>%
+  mutate(order = factor(Pest, Pest)) %>%
+  ggplot( aes(x = Pest, y = n)) + 
+  geom_segment( aes(x = order, xend = Pest, y = 0, yend = n), color = "#781C6DFF", linewidth = 1) +
+  geom_point(color="#781C6DFF", size = 8, alpha = 0.5) +
+  xlab("Species causing damage to sorghum") + ylab("Nb of farms affected") +
+  theme_few() +
+  coord_flip() +
+  theme(axis.title.x = element_text(size = 14, face = "bold", margin = margin(10, 0, 0, 0)),
+        axis.title.y = element_text(size = 14, face = "bold", margin = margin(0, 10, 0, 0)),
+        axis.text.x = element_text(size = 12, face = "bold"),
+        axis.text.y = element_text(size = 10, face = "bold"))
+
+```
+
+
+\newpage
+
+
+## 7.3. Sesame
+
+
+```{r sesame}
+
+ses = data[, c(1, 7, 52, 221:240)]
+
+ses = ses[ses$area_ha_cropped_in_sesame_during_the_season_2021_22 > 0,]
+
+
+ses$quantity_kg_of_basal_fertilizer_applied_to_sesame_in_the_season_2021_22 = 
+  ses$quantity_kg_of_basal_fertilizer_applied_to_sesame_in_the_season_2021_22 /
+  ses$area_ha_cropped_in_sesame_during_the_season_2021_22
+
+ses$quantity_kg_of_topdressing_fertilizer_applied_to_sesame_in_the_season_2021_22 = 
+  ses$quantity_kg_of_topdressing_fertilizer_applied_to_sesame_in_the_season_2021_22 /
+  ses$area_ha_cropped_in_sesame_during_the_season_2021_22
+
+ses$quantity_kg_of_manure_applied_to_sesame_in_the_season_2021_22 = 
+  ses$quantity_kg_of_manure_applied_to_sesame_in_the_season_2021_22 /
+  ses$area_ha_cropped_in_sesame_during_the_season_2021_22
+
+ses$total_sesame_production_in_the_season_2021_22_kg = 
+  ses$total_sesame_production_in_the_season_2021_22_kg /
+  ses$area_ha_cropped_in_sesame_during_the_season_2021_22
+
+ses$quantity_kg_of_compost_applied_to_sesame_in_the_season_2021_22 = 
+  ses$quantity_kg_of_compost_applied_to_sesame_in_the_season_2021_22 /
+  ses$area_ha_cropped_in_sesame_during_the_season_2021_22
+
+```
+
+
+Sesame was farmed by `r round(nrow(ses)*100/nrow(data), 1)`% of the households in Mbire during the 2021-22 season. 
+
+\
+
+
+```{r tab13}
+
+ses[, c(2, 3, 12, 4:11, 21)] %>%
+  tbl_summary(
+    by = ward,
+    statistic = list(all_continuous() ~ "{mean} ({sd})",
+                     all_categorical() ~ "{p}%"),
+    type = list(area_ha_cropped_in_sesame_during_the_season_2021_22		 ~ "continuous",
+                total_sesame_production_in_the_season_2021_22_kg		 ~ "continuous",
+                quantity_kg_of_basal_fertilizer_applied_to_sesame_in_the_season_2021_22	 ~ "continuous",
+                quantity_kg_of_topdressing_fertilizer_applied_to_sesame_in_the_season_2021_22 ~ "continuous",
+                quantity_kg_of_manure_applied_to_sesame_in_the_season_2021_22 ~ "continuous",
+                quantity_kg_of_compost_applied_to_sesame_in_the_season_2021_22 ~ "continuous"),
+    missing = "no",
+    digits = all_continuous() ~ 1,
+    label = list(area_ha_cropped_in_sesame_during_the_season_2021_22	 ~ "Sesame area (ha)",
+                 total_sesame_production_in_the_season_2021_22_kg ~ "Sesame yield (kg/ha)",
+                 main_mode_of_land_preparation_for_sesame_in_the_season_2021_22 ~ "Main mode of land preparation",
+                 quantity_kg_of_basal_fertilizer_applied_to_sesame_in_the_season_2021_22	 ~ "Rate of basal fertilizer (kg/ha)",
+                 quantity_kg_of_topdressing_fertilizer_applied_to_sesame_in_the_season_2021_22 ~ "Rate of top-dressing fertilizer (kg/ha)",
+                 quantity_kg_of_manure_applied_to_sesame_in_the_season_2021_22 ~ "Rate of manure (kg/ha)",
+                 quantity_kg_of_compost_applied_to_sesame_in_the_season_2021_22 ~ "Rate of compost (kg/ha)",
+                 main_mode_of_sesame_weeding_in_the_season_2021_22	 ~ "Main mode of weeding",
+                 total_number_of_pesticide_treatments_applied_to_sesame_in_the_season_2021_22 ~ "Number of pesticide treatments",
+                 did_you_use_biopesticides_on_your_sesame_crop_in_the_season_2021_22 ~ "Use of biopesticides",
+                 x1st_choice_245 ~ "Main market"))%>%
+  add_overall()%>%
+  modify_caption("Characteristic of sesame cropping")
+
+```
+
+
+
+```{r figX, fig.width = 5.5, fig.height = 3, fig.cap = "Sesame residue use"}
+
+ses_res = ses[, c(1:2, 13:19)]
+
+names(ses_res) = c("ID", "Ward", "Burnt", "Retained in the field", "Grazed in the field",
+                    "Harvested for feed", "Harvested for compost", "Harvested for fuel",
+                    "Harvested for fencing")
+
+ses_res = gather(ses_res, use, perc, "Burnt":"Harvested for fencing")
+
+ses_res$perc = as.numeric(ses_res$perc)
+ses_res$perc = 100 * ses_res$perc
+
+ses_res = aggregate(perc ~ use, FUN = mean, na.rm = TRUE, data = ses_res)
+
+ses_res = ses_res[ses_res$perc > 0,]
+
+ggplot(ses_res, aes(x = "", y = perc, fill = use)) + 
+  geom_bar(alpha = 0.5, width = 1, stat = "identity", color = "black") +
+  coord_polar("y", start = 0) + theme_few() + 
+  scale_fill_viridis_d(option = "B", name = "Residue use") +
+  theme(plot.title = element_blank(),
+        axis.title.x = element_blank(),
+        axis.title.y = element_blank(),
+        panel.border = element_blank(),
+        panel.grid=element_blank(),  
+        axis.ticks = element_blank(),
+        axis.text = element_blank(),
+        legend.text = element_text(size = 12), 
+        legend.title = element_text(size = 14, face = "bold"),
+        legend.position = "right") 
+
+```
+
+
+```{r figY, fig.width = 8, fig.height = 5.5, fig.cap = "Animals causing damage to sesame"}
+
+ses_pest1 = ses[, c(1:2, 18)]
+ses_pest2 = ses[, c(1:2, 19)]
+ses_pest3 = ses[, c(1:2, 20)]
+
+names(ses_pest1) = c("ID", "Ward", "Pest")
+names(ses_pest2) = c("ID", "Ward", "Pest")
+names(ses_pest3) = c("ID", "Ward", "Pest")
+
+ses_pest = rbind(ses_pest1, ses_pest2, ses_pest3)
+
+ses_pest$n = rep(1, nrow(ses_pest))
+
+ses_pest = aggregate(n ~ Pest, FUN = sum, na.rm = TRUE, data = ses_pest[, c(3:4)])
+
+ses_pest = ses_pest[which(ses_pest$Pest != "None"), ]
+
+ses_pest %>%
+  arrange(n) %>%
+  mutate(order = factor(Pest, Pest)) %>%
+  ggplot( aes(x = Pest, y = n)) + 
+  geom_segment( aes(x = order, xend = Pest, y = 0, yend = n), color = "#781C6DFF", linewidth = 1) +
+  geom_point(color="#781C6DFF", size = 8, alpha = 0.5) +
+  xlab("Species causing damage to sesame") + ylab("Nb of farms affected") +
+  theme_few() +
+  coord_flip() +
+  theme(axis.title.x = element_text(size = 14, face = "bold", margin = margin(10, 0, 0, 0)),
+        axis.title.y = element_text(size = 14, face = "bold", margin = margin(0, 10, 0, 0)),
+        axis.text.x = element_text(size = 12, face = "bold"),
+        axis.text.y = element_text(size = 10, face = "bold"))
+
+```
+
+
+\newpage
+
+
+## 7.4. Groundnut
+
+
+```{r groundnut}
+
+gnut = data[, c(1, 7, 53, 241:260)]
+
+gnut = gnut[gnut$area_ha_cropped_in_groundnut_during_the_season_2021_22 > 0,]
+
+
+gnut$quantity_kg_of_basal_fertilizer_applied_to_groundnut_in_the_season_2021_22 = 
+  gnut$quantity_kg_of_basal_fertilizer_applied_to_groundnut_in_the_season_2021_22 /
+  gnut$area_ha_cropped_in_groundnut_during_the_season_2021_22
+
+gnut$quantity_kg_of_topdressing_fertilizer_applied_to_groundnut_in_the_season_2021_22 = 
+  gnut$quantity_kg_of_topdressing_fertilizer_applied_to_groundnut_in_the_season_2021_22 /
+  gnut$area_ha_cropped_in_groundnut_during_the_season_2021_22
+
+gnut$quantity_kg_of_manure_applied_to_groundnut_in_the_season_2021_22 = 
+  gnut$quantity_kg_of_manure_applied_to_groundnut_in_the_season_2021_22 /
+  gnut$area_ha_cropped_in_groundnut_during_the_season_2021_22
+
+gnut$total_production_of_unshelled_groundnut_in_the_season_2021_22_kg = 
+  gnut$total_production_of_unshelled_groundnut_in_the_season_2021_22_kg /
+  gnut$area_ha_cropped_in_groundnut_during_the_season_2021_22
+
+gnut$quantity_kg_of_compost_applied_to_groundnut_in_the_season_2021_22 = 
+  gnut$quantity_kg_of_compost_applied_to_groundnut_in_the_season_2021_22 /
+  gnut$area_ha_cropped_in_groundnut_during_the_season_2021_22
+
+```
+
+
+Groundnut was farmed by `r round(nrow(gnut)*100/nrow(data), 1)`% of the households in Mbire during the 2021-22 season. 
+
+\
+
+
+```{r tab14}
+
+gnut[, c(2, 3, 12, 4:11, 21)] %>%
+  tbl_summary(
+    by = ward,
+    statistic = list(all_continuous() ~ "{mean} ({sd})",
+                     all_categorical() ~ "{p}%"),
+    type = list(quantity_kg_of_manure_applied_to_groundnut_in_the_season_2021_22	 ~ "continuous",
+                quantity_kg_of_compost_applied_to_groundnut_in_the_season_2021_22 ~ "continuous",
+                total_number_of_pesticide_treatments_applied_to_groundnut_in_the_season_2021_22 ~ "continuous",
+                quantity_kg_of_basal_fertilizer_applied_to_groundnut_in_the_season_2021_22	 ~ "continuous",
+                quantity_kg_of_topdressing_fertilizer_applied_to_groundnut_in_the_season_2021_22 ~ "continuous"),
+    missing = "no",
+    digits = all_continuous() ~ 1,
+    label = list(area_ha_cropped_in_groundnut_during_the_season_2021_22	 ~ "Groundnut area (ha)",
+                 total_production_of_unshelled_groundnut_in_the_season_2021_22_kg ~ "Groundnut yield (kg/ha)",
+                 main_mode_of_land_preparation_for_groundnut_in_the_season_2021_22 ~ "Main mode of land preparation",
+                 quantity_kg_of_basal_fertilizer_applied_to_groundnut_in_the_season_2021_22	 ~ "Rate of basal fertilizer (kg/ha)",
+                 quantity_kg_of_topdressing_fertilizer_applied_to_groundnut_in_the_season_2021_22 ~ "Rate of top-dressing fertilizer (kg/ha)",
+                 quantity_kg_of_manure_applied_to_groundnut_in_the_season_2021_22 ~ "Rate of manure (kg/ha)",
+                 quantity_kg_of_compost_applied_to_groundnut_in_the_season_2021_22 ~ "Rate of compost (kg/ha)",
+                 main_mode_of_groundnut_weeding_in_the_season_2021_22	 ~ "Main mode of weeding",
+                 total_number_of_pesticide_treatments_applied_to_groundnut_in_the_season_2021_22 ~ "Number of pesticide treatments",
+                 did_you_use_biopesticides_on_your_groundnut_crop_in_the_season_2021_22 ~ "Use of biopesticides",
+                 x1st_choice_268 ~ "Main market"))%>%
+  add_overall()%>%
+  modify_caption("Characteristic of groundnut cropping")
+
+```
+
+
+```{r fig11, fig.width = 5.5, fig.height = 3, fig.cap = "Groundnut residue use"}
+
+gnut_res = gnut[, c(1:2, 13:17)]
+
+names(gnut_res) = c("ID", "Ward", "Burnt", "Retained in the field", "Grazed in the field",
+                   "Harvested for feed", "Harvested for compost")
+
+gnut_res = gather(gnut_res, use, perc, "Burnt":"Harvested for compost")
+
+gnut_res$perc = as.numeric(gnut_res$perc)
+gnut_res$perc = 100 * gnut_res$perc
+
+gnut_res = aggregate(perc ~ use, FUN = mean, na.rm = TRUE, data = gnut_res)
+
+gnut_res = gnut_res[gnut_res$perc > 0,]
+
+ggplot(gnut_res, aes(x = "", y = perc, fill = use)) + 
+  geom_bar(alpha = 0.5, width = 1, stat = "identity", color = "black") +
+  coord_polar("y", start = 0) + theme_few() + 
+  scale_fill_viridis_d(option = "B", name = "Residue use") +
+  theme(plot.title = element_blank(),
+        axis.title.x = element_blank(),
+        axis.title.y = element_blank(),
+        panel.border = element_blank(),
+        panel.grid=element_blank(),  
+        axis.ticks = element_blank(),
+        axis.text = element_blank(),
+        legend.text = element_text(size = 10), 
+        legend.title = element_text(size = 12, face = "bold"),
+        legend.position = "right") 
+
+```
+
+
+```{r fig12, fig.width = 8, fig.height = 5, fig.cap = "Animals causing damage to groundnut"}
+
+gnut_pest1 = gnut[, c(1:2, 18)]
+gnut_pest2 = gnut[, c(1:2, 19)]
+gnut_pest3 = gnut[, c(1:2, 20)]
+
+names(gnut_pest1) = c("ID", "Ward", "Pest")
+names(gnut_pest2) = c("ID", "Ward", "Pest")
+names(gnut_pest3) = c("ID", "Ward", "Pest")
+
+gnut_pest = rbind(gnut_pest1, gnut_pest2, gnut_pest3)
+
+gnut_pest$n = rep(1, nrow(gnut_pest))
+
+gnut_pest = aggregate(n ~ Pest, FUN = sum, na.rm = TRUE, data = gnut_pest[, c(3:4)])
+
+gnut_pest = gnut_pest[which(gnut_pest$Pest != "None"), ]
+
+gnut_pest %>%
+  arrange(n) %>%
+  mutate(order = factor(Pest, Pest)) %>%
+  ggplot( aes(x = Pest, y = n)) + 
+  geom_segment( aes(x = order, xend = Pest, y = 0, yend = n), color = "#781C6DFF", linewidth = 1) +
+  geom_point(color="#781C6DFF", size = 8, alpha = 0.5) +
+  xlab("Species causing damage to groundnut") + ylab("Nb of farms affected") +
+  theme_few() +
+  coord_flip() +
+  theme(axis.title.x = element_text(size = 14, face = "bold", margin = margin(10, 0, 0, 0)),
+        axis.title.y = element_text(size = 14, face = "bold", margin = margin(0, 10, 0, 0)),
+        axis.text.x = element_text(size = 12, face = "bold"),
+        axis.text.y = element_text(size = 10, face = "bold"))
+
+```
+
+
+\newpage
+
+
+## 7.5. Cotton
+
+
+```{r cotton}
+
+cot = data[, c(1, 7, 55, 261:275)]
+
+cot = cot[cot$area_ha_cropped_in_cotton_during_the_season_2021_22 > 0,]
+
+
+cot$quantity_kg_of_basal_fertilizer_applied_to_cotton_in_the_season_2021_22 = 
+  cot$quantity_kg_of_basal_fertilizer_applied_to_cotton_in_the_season_2021_22 /
+  cot$area_ha_cropped_in_cotton_during_the_season_2021_22
+
+cot$quantity_kg_of_topdressing_fertilizer_applied_to_cotton_in_the_season_2021_22 = 
+  cot$quantity_kg_of_topdressing_fertilizer_applied_to_cotton_in_the_season_2021_22 /
+  cot$area_ha_cropped_in_cotton_during_the_season_2021_22
+
+cot$quantity_kg_of_manure_applied_to_cotton_in_the_season_2021_22 = 
+  cot$quantity_kg_of_manure_applied_to_cotton_in_the_season_2021_22 /
+  cot$area_ha_cropped_in_cotton_during_the_season_2021_22
+
+cot$total_cotton_production_in_the_season_2021_22_kg = 
+  cot$total_cotton_production_in_the_season_2021_22_kg /
+  cot$area_ha_cropped_in_cotton_during_the_season_2021_22
+
+cot$quantity_kg_of_compost_applied_to_cotton_in_the_season_2021_22 = 
+  cot$quantity_kg_of_compost_applied_to_cotton_in_the_season_2021_22 /
+  cot$area_ha_cropped_in_cotton_during_the_season_2021_22
+
+```
+
+
+Cotton was farmed by ``r round(nrow(cot)*100/nrow(data), 1)`% of the households in Mbire during the 2021-22 season. 
+
+\
+
+
+```{r tab15}
+
+cot[, c(2, 3, 12, 4:11, 16)] %>%
+  tbl_summary(
+    by = ward,
+    statistic = list(all_continuous() ~ "{mean} ({sd})",
+                     all_categorical() ~ "{p}%"),
+    type = list(area_ha_cropped_in_cotton_during_the_season_2021_22	 ~ "continuous",
+                total_cotton_production_in_the_season_2021_22_kg ~ "continuous",
+                quantity_kg_of_basal_fertilizer_applied_to_cotton_in_the_season_2021_22 ~ "continuous",
+                quantity_kg_of_topdressing_fertilizer_applied_to_cotton_in_the_season_2021_22	 ~ "continuous",
+                quantity_kg_of_manure_applied_to_cotton_in_the_season_2021_22 ~ "continuous",
+                quantity_kg_of_compost_applied_to_cotton_in_the_season_2021_22 ~ "continuous",
+                total_number_of_pesticide_treatments_applied_to_cotton_in_the_season_2021_22 ~ "continuous"),
+    missing = "no",
+    digits = all_continuous() ~ 1,
+    label = list(area_ha_cropped_in_cotton_during_the_season_2021_22	 ~ "Cotton area (ha)",
+                 total_cotton_production_in_the_season_2021_22_kg ~ "Cotton yield (kg/ha)",
+                 main_mode_of_land_preparation_for_cotton_in_the_season_2021_22 ~ "Main mode of land preparation",
+                 quantity_kg_of_basal_fertilizer_applied_to_cotton_in_the_season_2021_22	 ~ "Rate of basal fertilizer (kg/ha)",
+                 quantity_kg_of_topdressing_fertilizer_applied_to_cotton_in_the_season_2021_22 ~ "Rate of top-dressing fertilizer (kg/ha)",
+                 quantity_kg_of_manure_applied_to_cotton_in_the_season_2021_22 ~ "Rate of manure (kg/ha)",
+                 quantity_kg_of_compost_applied_to_cotton_in_the_season_2021_22 ~ "Rate of compost (kg/ha)",
+                 main_mode_of_cotton_weeding_in_the_season_2021_22	 ~ "Main mode of weeding",
+                 total_number_of_pesticide_treatments_applied_to_cotton_in_the_season_2021_22 ~ "Number of pesticide treatments",
+                 did_you_use_biopesticides_on_your_cotton_crop_in_the_season_2021_22 ~ "Use of biopesticides",
+                 x1st_choice_285 ~ "Main market"))%>%
+  add_overall()%>%
+  modify_caption("Characteristic of cotton cropping")
+
+```
+
+
+```{r fig13, fig.width = 8, fig.height = 5.5, fig.cap = "Animals causing damage to cotton"}
+
+cot_pest1 = cot[, c(1:2, 13)]
+cot_pest2 = cot[, c(1:2, 14)]
+cot_pest3 = cot[, c(1:2, 15)]
+
+names(cot_pest1) = c("ID", "Ward", "Pest")
+names(cot_pest2) = c("ID", "Ward", "Pest")
+names(cot_pest3) = c("ID", "Ward", "Pest")
+
+cot_pest = rbind(cot_pest1, cot_pest2, cot_pest3)
+
+cot_pest$n = rep(1, nrow(cot_pest))
+
+cot_pest = aggregate(n ~ Pest, FUN = sum, na.rm = TRUE, data = cot_pest[, c(3:4)])
+
+cot_pest = cot_pest[which(cot_pest$Pest != "None"), ]
+
+cot_pest %>%
+  arrange(n) %>%
+  mutate(order = factor(Pest, Pest)) %>%
+  ggplot( aes(x = Pest, y = n)) + 
+  geom_segment( aes(x = order, xend = Pest, y = 0, yend = n), color = "#781C6DFF", linewidth = 1) +
+  geom_point(color="#781C6DFF", size = 8, alpha = 0.5) +
+  xlab("Species causing damage to cotton") + ylab("Nb of farms affected") +
+  theme_few() +
+  coord_flip() +
+  theme(axis.title.x = element_text(size = 14, face = "bold", margin = margin(10, 0, 0, 0)),
+        axis.title.y = element_text(size = 14, face = "bold", margin = margin(0, 10, 0, 0)),
+        axis.text.x = element_text(size = 12, face = "bold"),
+        axis.text.y = element_text(size = 10, face = "bold"))
+
+```
+
+
+\newpage
+
+
+## 7.6. Tomato
+
+
+```{r tomato}
+
+tom = data[, c(1, 7, 276:284)]
+
+tom = na.omit(tom)
+
+```
+
+
+Tomato was farmed by `r round(nrow(tom)*100/nrow(data), 1)`% of the households in Mbire during the 2021-22 season. 
+
+\
+
+
+```{r tab 16}
+
+tom[, c(2, 5, 3:4, 9)] %>%
+  tbl_summary(
+    by = ward,
+    statistic = list(all_continuous() ~ "{mean} ({sd})",
+                     all_categorical() ~ "{p}%"),
+    missing = "no",
+    digits = all_continuous() ~ 1,
+    label = list(total_tomato_production_in_the_last_12_months_kg ~ "Total production of tomatoes (kg/year)",
+                 total_number_of_pesticide_treatments_applied_to_your_last_tomato_crop_from_seedling_till_harvest ~ "Number of pesticide treatments (per crop)",
+                 did_you_use_biopesticides_on_your_last_tomato_crop ~ "Use of biopesticides",
+                 x1st_choice_296 ~ "Main market"))%>%
+  add_overall()
+
+```
+
+
+```{r fig14, fig.width = 8, fig.height = 5.5, fig.cap = "Animals causing damage to tomato"}
+
+tom_pest1 = tom[, c(1:2, 6)]
+tom_pest2 = tom[, c(1:2, 7)]
+tom_pest3 = tom[, c(1:2, 8)]
+
+names(tom_pest1) = c("ID", "Ward", "Pest")
+names(tom_pest2) = c("ID", "Ward", "Pest")
+names(tom_pest3) = c("ID", "Ward", "Pest")
+
+tom_pest = rbind(tom_pest1, tom_pest2, tom_pest3)
+
+tom_pest$n = rep(1, nrow(tom_pest))
+
+tom_pest = aggregate(n ~ Pest, FUN = sum, na.rm = TRUE, data = tom_pest[, c(3:4)])
+
+tom_pest = tom_pest[which(tom_pest$Pest != "None"), ]
+
+tom_pest %>%
+  arrange(n) %>%
+  mutate(order = factor(Pest, Pest)) %>%
+  ggplot( aes(x = Pest, y = n)) + 
+  geom_segment( aes(x = order, xend = Pest, y = 0, yend = n), color = "#781C6DFF", linewidth = 1) +
+  geom_point(color="#781C6DFF", size = 8, alpha = 0.5) +
+  xlab("Species causing damage to tomatoes") + ylab("Nb of farms affected") +
+  theme_few() +
+  coord_flip() +
+  theme(axis.title.x = element_text(size = 14, face = "bold", margin = margin(10, 0, 0, 0)),
+        axis.title.y = element_text(size = 14, face = "bold", margin = margin(0, 10, 0, 0)),
+        axis.text.x = element_text(size = 12, face = "bold"),
+        axis.text.y = element_text(size = 10, face = "bold"))
+
+```
+
+
+\newpage
+
+
+## 7.7. Onion
+
+
+```{r onion}
+
+oni = data[, c(1, 7, 285:293)]
+
+oni = na.omit(oni)
+
+```
+
+
+Onion was farmed by `r round(nrow(oni)*100/nrow(data), 1)`% of the households in Mbire during the 2021-22 season. 
+
+\
+
+
+```{r tab17}
+
+oni[, c(2, 5, 3:4, 9)] %>%
+  tbl_summary(
+    by = ward,
+    statistic = list(all_continuous() ~ "{mean} ({sd})",
+                     all_categorical() ~ "{p}%"),
+    missing = "no",
+    type = list(total_number_of_pesticide_treatments_applied_to_your_last_onion_crop_from_seedling_till_harvest	 ~ "continuous"),
+    digits = all_continuous() ~ 1,
+    label = list(total_onion_production_in_the_last_12_months_kg ~ "Total production of onions (kg/year)",
+                 total_number_of_pesticide_treatments_applied_to_your_last_onion_crop_from_seedling_till_harvest ~ "Number of pesticide treatments (per crop)",
+                 did_you_use_biopesticides_on_your_last_onion_crop ~ "Use of biopesticides",
+                 x1st_choice_307 ~ "Main market"))%>%
+  add_overall()
+
+```
+
+
+```{r fig15, fig.width = 8, fig.height = 3, fig.cap = "Animals causing damage to onion"}
+
+oni_pest1 = oni[, c(1:2, 6)]
+oni_pest2 = oni[, c(1:2, 7)]
+oni_pest3 = oni[, c(1:2, 8)]
+
+names(oni_pest1) = c("ID", "Ward", "Pest")
+names(oni_pest2) = c("ID", "Ward", "Pest")
+names(oni_pest3) = c("ID", "Ward", "Pest")
+
+oni_pest = rbind(oni_pest1, oni_pest2, oni_pest3)
+
+oni_pest$n = rep(1, nrow(oni_pest))
+
+oni_pest = aggregate(n ~ Pest, FUN = sum, na.rm = TRUE, data = oni_pest[, c(3:4)])
+
+oni_pest = oni_pest[which(oni_pest$Pest != "None"), ]
+
+oni_pest %>%
+  arrange(n) %>%
+  mutate(order = factor(Pest, Pest)) %>%
+  ggplot( aes(x = Pest, y = n)) + 
+  geom_segment( aes(x = order, xend = Pest, y = 0, yend = n), color = "#781C6DFF", linewidth = 1) +
+  geom_point(color="#781C6DFF", size = 8, alpha = 0.5) +
+  xlab("Species causing\ndamage to onions") + ylab("Nb of farms affected") +
+  theme_few() +
+  coord_flip() +
+  theme(axis.title.x = element_text(size = 14, face = "bold", margin = margin(10, 0, 0, 0)),
+        axis.title.y = element_text(size = 14, face = "bold", margin = margin(0, 10, 0, 0)),
+        axis.text.x = element_text(size = 12, face = "bold"),
+        axis.text.y = element_text(size = 10, face = "bold"))
+
+```
+
+
+\newpage
+
+
+## 7.8. Cattle
+
+
+```{r cattle}
+
+cat = data[, c(1, 7, 309:312, 329:362)]
+
+cat$nb = cat$how_many_adult_indigenous_cattle_do_you_currently_own +
+  cat$how_many_improved_beef_cattle_do_you_currently_own +
+  cat$how_many_improved_dairy_cattle_do_you_currently_own +
+  cat$how_many_juvenile_cattle_3_yr_old_indigenous_and_improved_do_you_currently_own
+
+cat = cat[cat$nb > 0,]
+
+```
+
+
+Cattle was kept by `r round(nrow(cat)*100/nrow(data), 1)`% of the households in Mbire at the time of the interview. 
+
+\
+
+
+```{r tab18}
+
+cat[, c(2, 3:6, 23:31, 38)] %>%
+  tbl_summary(
+    by = ward,
+    statistic = list(all_continuous() ~ "{mean} ({sd})",
+                     all_categorical() ~ "{p}%"),
+    type = list(how_many_improved_beef_cattle_do_you_currently_own	 ~ "continuous",
+                how_many_improved_dairy_cattle_do_you_currently_own ~ "continuous",
+                how_many_juvenile_cattle_3_yr_old_indigenous_and_improved_do_you_currently_own ~ "continuous",
+                number_of_cattle_births_or_purchases_in_the_past_12_months	 ~ "continuous",
+                number_of_cattle_sold_or_slaughtered_in_the_past_12_months ~ "continuous",
+                number_of_cattle_deaths_in_the_past_12_months ~ "continuous",
+                number_of_cattle_killed_by_wild_animals_in_the_past_12_months ~ "continuous",
+                number_of_cattle_thefts_in_the_past_12_months ~ "continuous",
+                what_is_the_average_production_of_milk_l_per_day_during_the_rainy_season_december_may ~ "continuous",
+                what_is_the_average_production_of_milk_l_per_day_during_the_dry_season_june_november ~ "continuous"),
+    missing = "no",
+    digits = all_continuous() ~ 1,
+    label = list(how_many_adult_indigenous_cattle_do_you_currently_own ~ "Adult indigenous cattle (N°)",
+                 how_many_improved_beef_cattle_do_you_currently_own ~ "Improved beef cattle (N°)",
+                 how_many_improved_dairy_cattle_do_you_currently_own ~ "Improved dairy cattle (N°)",
+                 how_many_juvenile_cattle_3_yr_old_indigenous_and_improved_do_you_currently_own ~ "Juvenile cattle (N°)",
+                 time_hour_to_main_cattle_grazing_area ~ "Time to grazing area (hour)",
+                 time_hour_to_main_cattle_drinking_point ~ "Time to drinking point (hour)",
+                 number_of_cattle_births_or_purchases_in_the_past_12_months ~ "Cattle births & purchases (N°/yr)",
+                 number_of_cattle_sold_or_slaughtered_in_the_past_12_months ~ "Cattle sold & slaughtered (N°/yr)",
+                 number_of_cattle_deaths_in_the_past_12_months ~ "Cattle deaths (N°/yr)",
+                 number_of_cattle_killed_by_wild_animals_in_the_past_12_months ~ "Cattle killed by wild animals (N°/yr)",
+                 number_of_cattle_thefts_in_the_past_12_months ~ "Cattle thefts (N°/yr)",
+                 what_is_the_average_production_of_milk_l_per_day_during_the_rainy_season_december_may ~ "Milk production during the rainy season (L/day)",
+                 what_is_the_average_production_of_milk_l_per_day_during_the_dry_season_june_november ~ "Milk production during the dry season (L/day)",
+                 x1st_choice_382 ~ "Main market"))%>%
+  add_overall()%>%
+  modify_caption("Characteristic of cattle farming")
+
+```
+
+
+```{r tab19}
+
+cat$stock_end = cat$how_many_adult_indigenous_cattle_do_you_currently_own +
+  cat$how_many_improved_beef_cattle_do_you_currently_own +
+  cat$how_many_improved_dairy_cattle_do_you_currently_own +
+  cat$how_many_juvenile_cattle_3_yr_old_indigenous_and_improved_do_you_currently_own
+
+cat$stock_beginning = cat$stock_end - cat$number_of_cattle_births_or_purchases_in_the_past_12_months +
+  cat$number_of_cattle_sold_or_slaughtered_in_the_past_12_months +
+  cat$number_of_cattle_deaths_in_the_past_12_months +
+  cat$number_of_cattle_thefts_in_the_past_12_months
+
+cat$growth_rate = (cat$stock_end - cat$stock_beginning) * 100 / cat$stock_beginning
+
+cat$growth_rate = ifelse(cat$stock_beginning == 0, NA, cat$growth_rate)
+
+cat$offtake_rate = cat$number_of_cattle_sold_or_slaughtered_in_the_past_12_months * 100 /
+  ((cat$stock_beginning + cat$stock_end) / 2)
+
+cat$death_rate = cat$number_of_cattle_deaths_in_the_past_12_months * 100 /
+  ((cat$stock_beginning + cat$stock_end) / 2)
+
+
+cat[, c(2, 42, 44:46)] %>%
+  tbl_summary(
+    by = ward,
+    statistic = list(all_continuous() ~ "{mean} ({sd})",
+                     all_categorical() ~ "{p}%"),
+    missing = "no",
+    digits = all_continuous() ~ 1,
+    label = list(stock_end ~ "Current stock (N°)",
+                 growth_rate ~ "Growth rate (%)",
+                 offtake_rate ~ "Offtake rate (%)",
+                 death_rate ~ "Mortality rate (%)"))%>%
+  add_overall()%>%
+  modify_caption("Performance of cattle farming")
+
+```
+
+
+```{r fig16, fig.width = 5.5, fig.height = 3, fig.cap = "Feed composition of cattle during the wet season"}
+
+cat_wet = cat[, c(1:2, 7:14)]
+
+names(cat_wet) = c("ID", "Ward", "Grazing", "Wild grass (cut-and-carry)", "Hay",
+                    "Pods", "Cereal residues", "Cultivated grass forage", "Cultivated legume forage",
+                    "Commercial feed")
+
+cat_wet = gather(cat_wet, ingredient, perc, "Grazing":"Commercial feed")
+
+cat_wet$perc = as.numeric(cat_wet$perc)
+cat_wet$perc = 100 * cat_wet$perc
+
+cat_wet = aggregate(perc ~ ingredient, FUN = mean, na.rm = TRUE, data = cat_wet)
+
+cat_wet = cat_wet[cat_wet$perc > 0,]
+
+ggplot(cat_wet, aes(x = "", y = perc, fill = ingredient)) + 
+  geom_bar(alpha = 0.5, width = 1, stat = "identity", color = "black") +
+  coord_polar("y", start = 0) + theme_few() + 
+  scale_fill_viridis_d(option = "B", name = "Ration") +
+  theme(plot.title = element_blank(),
+        axis.title.x = element_blank(),
+        axis.title.y = element_blank(),
+        panel.border = element_blank(),
+        panel.grid=element_blank(),  
+        axis.ticks = element_blank(),
+        axis.text = element_blank(),
+        legend.text = element_text(size = 10), 
+        legend.title = element_text(size = 12, face = "bold"),
+        legend.position = "right") 
+
+```
+
+
+```{r fig17, fig.width = 5.5, fig.height = 3, fig.cap = "Feed composition of cattle during the dry season"}
+
+cat_dry = cat[, c(1:2, 15:22)]
+
+names(cat_dry) = c("ID", "Ward", "Grazing", "Wild grass (cut-and-carry)", "Hay",
+                   "Pods", "Cereal residues", "Cultivated grass forage", "Cultivated legume forage",
+                   "Commercial feed")
+
+cat_dry = gather(cat_dry, ingredient, perc, "Grazing":"Commercial feed")
+
+cat_dry$perc = as.numeric(cat_dry$perc)
+cat_dry$perc = 100 * cat_dry$perc
+
+cat_dry = aggregate(perc ~ ingredient, FUN = mean, na.rm = TRUE, data = cat_dry)
+
+cat_dry = cat_dry[cat_dry$perc > 0,]
+
+ggplot(cat_dry, aes(x = "", y = perc, fill = ingredient)) + 
+  geom_bar(alpha = 0.5, width = 1, stat = "identity", color = "black") +
+  coord_polar("y", start = 0) + theme_few() + 
+  scale_fill_viridis_d(option = "B", name = "Ration") +
+  theme(plot.title = element_blank(),
+        axis.title.x = element_blank(),
+        axis.title.y = element_blank(),
+        panel.border = element_blank(),
+        panel.grid=element_blank(),  
+        axis.ticks = element_blank(),
+        axis.text = element_blank(),
+        legend.text = element_text(size = 10), 
+        legend.title = element_text(size = 12, face = "bold"),
+        legend.position = "right") 
+
+```
+
+
+```{r fig18, fig.width = 8, fig.height = 2.5, fig.cap = "Major cattle diseases"}
+
+cat_dis1 = cat[, c(1:2, 32)]
+cat_dis2 = cat[, c(1:2, 33)]
+cat_dis3 = cat[, c(1:2, 34)]
+
+names(cat_dis1) = c("ID", "Ward", "Disease")
+names(cat_dis2) = c("ID", "Ward", "Disease")
+names(cat_dis3) = c("ID", "Ward", "Disease")
+
+cat_dis = rbind(cat_dis1, cat_dis2, cat_dis3)
+
+cat_dis$n = rep(1, nrow(cat_dis))
+
+cat_dis = aggregate(n ~ Disease, FUN = sum, na.rm = TRUE, data = cat_dis[, c(3:4)])
+
+cat_dis = cat_dis[which(cat_dis$Disease != "None"), ]
+
+cat_dis %>%
+  arrange(n) %>%
+  mutate(order = factor(Disease, Disease)) %>%
+  ggplot( aes(x = Disease, y = n)) + 
+  geom_segment( aes(x = order, xend = Disease, y = 0, yend = n), color = "#ED6925FF", linewidth = 1) +
+  geom_point(color="#ED6925FF", size = 8, alpha = 0.5) +
+  xlab("Major cattle diseases") + ylab("Nb of farms affected") +
+  theme_few() +
+  coord_flip() +
+  theme(axis.title.x = element_text(size = 14, face = "bold", margin = margin(10, 0, 0, 0)),
+        axis.title.y = element_text(size = 14, face = "bold", margin = margin(0, 10, 0, 0)),
+        axis.text.x = element_text(size = 12, face = "bold"),
+        axis.text.y = element_text(size = 10, face = "bold"))
+
+```
+
+
+```{r fig19, fig.width = 8, fig.height = 2.5, fig.cap = "Animals killing cattle"}
+
+cat_pest1 = cat[, c(1:2, 35)]
+cat_pest2 = cat[, c(1:2, 36)]
+cat_pest3 = cat[, c(1:2, 37)]
+
+names(cat_pest1) = c("ID", "Ward", "Pest")
+names(cat_pest2) = c("ID", "Ward", "Pest")
+names(cat_pest3) = c("ID", "Ward", "Pest")
+
+cat_pest = rbind(cat_pest1, cat_pest2, cat_pest3)
+
+cat_pest$n = rep(1, nrow(cat_pest))
+
+cat_pest = aggregate(n ~ Pest, FUN = sum, na.rm = TRUE, data = cat_pest[, c(3:4)])
+
+cat_pest = cat_pest[which(cat_pest$Pest != "None"), ]
+
+cat_pest %>%
+  arrange(n) %>%
+  mutate(order = factor(Pest, Pest)) %>%
+  ggplot( aes(x = Pest, y = n)) + 
+  geom_segment( aes(x = order, xend = Pest, y = 0, yend = n), color = "#781C6DFF", linewidth = 1) +
+  geom_point(color="#781C6DFF", size = 8, alpha = 0.5) +
+  xlab("Species predating\non cattle") + ylab("Nb of farms affected") +
+  theme_few() +
+  coord_flip() +
+  theme(axis.title.x = element_text(size = 14, face = "bold", margin = margin(10, 0, 0, 0)),
+        axis.title.y = element_text(size = 14, face = "bold", margin = margin(0, 10, 0, 0)),
+        axis.text.x = element_text(size = 12, face = "bold"),
+        axis.text.y = element_text(size = 10, face = "bold"))
+
+```
+
+
+\newpage
+
+
+## 7.9. Goats
+
+
+```{r goat}
+
+goat = data[, c(1, 7, 314:315, 363:395)]
+
+goat$nb = goat$how_many_indigenous_goats_do_you_currently_own +
+  goat$how_many_improved_goats_do_you_currently_own 
+
+goat = goat[goat$nb > 0,]
+
+```
+
+
+Goats were kept by `r round(nrow(goat)*100/nrow(data), 1)`% of the households in Mbire at the time of the interview. 
+
+\
+
+
+```{r tab20}
+
+goat[, c(2, 3:4, 23:28, 35)] %>%
+  tbl_summary(
+    by = ward,
+    statistic = list(all_continuous() ~ "{mean} ({sd})",
+                     all_categorical() ~ "{p}%"),
+    type = list(how_many_improved_goats_do_you_currently_own	 ~ "continuous",
+            number_of_goats_sold_or_slaughtered_in_the_past_12_months ~ "continuous",
+            number_of_goat_deaths_in_the_past_12_months ~ "continuous",
+            number_of_goat_killed_by_wild_animals_in_the_past_12_months	 ~ "continuous"),
+    missing = "no",
+    digits = all_continuous() ~ 1,
+    label = list(how_many_indigenous_goats_do_you_currently_own ~ "Indigenous goats (N°)",
+                 how_many_improved_goats_do_you_currently_own ~ "Improved goats (N°)",
+                 time_hour_to_main_goat_grazing_area ~ "Time to grazing area (hour)",
+                 time_hour_to_main_goat_drinking_point ~ "Time to drinking point (hour)",
+                 number_of_goat_births_or_purchases_in_the_past_12_months ~ "Goat births & purchases (N°/yr)",
+                 number_of_goats_sold_or_slaughtered_in_the_past_12_months ~ "Goats sold & slaughtered (N°/yr)",
+                 number_of_goat_deaths_in_the_past_12_months ~ "Goat deaths (N°/yr)",
+                 number_of_goat_killed_by_wild_animals_in_the_past_12_months ~ "Goats killed by wild animals (N°/yr)",
+                 x1st_choice_420 ~ "Main market"))%>%
+  add_overall()%>%
+  modify_caption("Characteristic of goat farming")
+
+```
+
+
+```{r tab21}
+
+goat$stock_end = goat$how_many_indigenous_goats_do_you_currently_own +
+  goat$how_many_improved_goats_do_you_currently_own
+
+goat$stock_beginning = goat$stock_end - goat$number_of_goat_births_or_purchases_in_the_past_12_months +
+  goat$number_of_goats_sold_or_slaughtered_in_the_past_12_months +
+  goat$number_of_goat_deaths_in_the_past_12_months
+
+goat$growth_rate = (goat$stock_end - goat$stock_beginning) * 100 / goat$stock_beginning
+
+goat$growth_rate = ifelse(goat$stock_beginning == 0, NA, goat$growth_rate)
+
+goat$offtake_rate = goat$number_of_goats_sold_or_slaughtered_in_the_past_12_months * 100 /
+  ((goat$stock_beginning + goat$stock_end) / 2)
+
+goat$death_rate = goat$number_of_goat_deaths_in_the_past_12_months * 100 /
+  ((goat$stock_beginning + goat$stock_end) / 2)
+
+
+goat[, c(2, 39, 41:43)] %>%
+  tbl_summary(
+    by = ward,
+    statistic = list(all_continuous() ~ "{mean} ({sd})",
+                     all_categorical() ~ "{p}%"),
+    missing = "no",
+    digits = all_continuous() ~ 1,
+    label = list(stock_end ~ "Current stock (N°)",
+                 growth_rate ~ "Growth rate (%)",
+                 offtake_rate ~ "Offtake rate (%)",
+                 death_rate ~ "Mortality rate (%)"))%>%
+  add_overall()%>%
+  modify_caption("Performance of goat farming")
+
+```
+
+
+```{r fig20, fig.width = 5.5, fig.height = 3, fig.cap = "Feed composition of goats during the wet season"}
+
+goat_wet = goat[, c(1:2, 5:13)]
+
+names(goat_wet) = c("ID", "Ward", "Grazing", "Wild grass (cut-and-carry)", "Hay",
+                   "Pods", "Cereal residues", "Cultivated grass forage", "Cultivated legume forage",
+                   "Commercial feed", "Household kitchen wastes")
+
+goat_wet = gather(goat_wet, ingredient, perc, "Grazing":"Household kitchen wastes")
+
+goat_wet$perc = as.numeric(goat_wet$perc)
+goat_wet$perc = 100 * goat_wet$perc
+
+goat_wet = aggregate(perc ~ ingredient, FUN = mean, na.rm = TRUE, data = goat_wet)
+
+goat_wet = goat_wet[goat_wet$perc > 0,]
+
+ggplot(goat_wet, aes(x = "", y = perc, fill = ingredient)) + 
+  geom_bar(alpha = 0.5, width = 1, stat = "identity", color = "black") +
+  coord_polar("y", start = 0) + theme_few() + 
+  scale_fill_viridis_d(option = "B", name = "Ration") +
+  theme(plot.title = element_blank(),
+        axis.title.x = element_blank(),
+        axis.title.y = element_blank(),
+        panel.border = element_blank(),
+        panel.grid=element_blank(),  
+        axis.ticks = element_blank(),
+        axis.text = element_blank(),
+        legend.text = element_text(size = 10), 
+        legend.title = element_text(size = 12, face = "bold"),
+        legend.position = "right") 
+
+```
+
+
+```{r fig21, fig.width = 5.5, fig.height = 3, fig.cap = "Feed composition of goats during the dry season"}
+
+goat_dry = goat[, c(1:2, 14:22)]
+
+names(goat_dry) = c("ID", "Ward", "Grazing", "Wild grass (cut-and-carry)", "Hay",
+                    "Pods", "Cereal residues", "Cultivated grass forage", "Cultivated legume forage",
+                    "Commercial feed", "Household kitchen wastes")
+
+goat_dry = gather(goat_dry, ingredient, perc, "Grazing":"Household kitchen wastes")
+
+goat_dry$perc = as.numeric(goat_dry$perc)
+goat_dry$perc = 100 * goat_dry$perc
+
+goat_dry = aggregate(perc ~ ingredient, FUN = mean, na.rm = TRUE, data = goat_dry)
+
+goat_dry = goat_dry[goat_dry$perc > 0,]
+
+ggplot(goat_dry, aes(x = "", y = perc, fill = ingredient)) + 
+  geom_bar(alpha = 0.5, width = 1, stat = "identity", color = "black") +
+  coord_polar("y", start = 0) + theme_few() + 
+  scale_fill_viridis_d(option = "B", name = "Ration") +
+  theme(plot.title = element_blank(),
+        axis.title.x = element_blank(),
+        axis.title.y = element_blank(),
+        panel.border = element_blank(),
+        panel.grid=element_blank(),  
+        axis.ticks = element_blank(),
+        axis.text = element_blank(),
+        legend.text = element_text(size = 10), 
+        legend.title = element_text(size = 12, face = "bold"),
+        legend.position = "right") 
+
+```
+
+
+```{r fig22, fig.width = 8, fig.height = 2.5, fig.cap = "Major goat diseases"}
+
+goat_dis1 = goat[, c(1:2, 29)]
+goat_dis2 = goat[, c(1:2, 30)]
+goat_dis3 = goat[, c(1:2, 31)]
+
+names(goat_dis1) = c("ID", "Ward", "Disease")
+names(goat_dis2) = c("ID", "Ward", "Disease")
+names(goat_dis3) = c("ID", "Ward", "Disease")
+
+goat_dis = rbind(goat_dis1, goat_dis2, goat_dis3)
+
+goat_dis$n = rep(1, nrow(goat_dis))
+
+goat_dis = aggregate(n ~ Disease, FUN = sum, na.rm = TRUE, data = goat_dis[, c(3:4)])
+
+goat_dis = goat_dis[which(goat_dis$Disease != "None"), ]
+
+goat_dis %>%
+  arrange(n) %>%
+  mutate(order = factor(Disease, Disease)) %>%
+  ggplot( aes(x = Disease, y = n)) + 
+  geom_segment( aes(x = order, xend = Disease, y = 0, yend = n), color = "#ED6925FF", linewidth = 1) +
+  geom_point(color="#ED6925FF", size = 8, alpha = 0.5) +
+  xlab("Major goat diseases") + ylab("Nb of farms affected") +
+  theme_few() +
+  coord_flip() +
+  theme(axis.title.x = element_text(size = 14, face = "bold", margin = margin(10, 0, 0, 0)),
+        axis.title.y = element_text(size = 14, face = "bold", margin = margin(0, 10, 0, 0)),
+        axis.text.x = element_text(size = 12, face = "bold"),
+        axis.text.y = element_text(size = 10, face = "bold"))
+
+```
+
+
+```{r fig23, fig.width = 8, fig.height = 4, fig.cap = "Animals killing goats"}
+
+goat_pest1 = goat[, c(1:2, 32)]
+goat_pest2 = goat[, c(1:2, 33)]
+goat_pest3 = goat[, c(1:2, 34)]
+
+names(goat_pest1) = c("ID", "Ward", "Pest")
+names(goat_pest2) = c("ID", "Ward", "Pest")
+names(goat_pest3) = c("ID", "Ward", "Pest")
+
+goat_pest = rbind(goat_pest1, goat_pest2, goat_pest3)
+
+goat_pest$n = rep(1, nrow(goat_pest))
+
+goat_pest = aggregate(n ~ Pest, FUN = sum, na.rm = TRUE, data = goat_pest[, c(3:4)])
+
+goat_pest = goat_pest[which(goat_pest$Pest != "None"), ]
+
+goat_pest %>%
+  arrange(n) %>%
+  mutate(order = factor(Pest, Pest)) %>%
+  ggplot( aes(x = Pest, y = n)) + 
+  geom_segment( aes(x = order, xend = Pest, y = 0, yend = n), color = "#781C6DFF", linewidth = 1) +
+  geom_point(color="#781C6DFF", size = 8, alpha = 0.5) +
+  xlab("Species predating on goats") + ylab("Nb of farms affected") +
+  theme_few() +
+  coord_flip() +
+  theme(axis.title.x = element_text(size = 14, face = "bold", margin = margin(10, 0, 0, 0)),
+        axis.title.y = element_text(size = 14, face = "bold", margin = margin(0, 10, 0, 0)),
+        axis.text.x = element_text(size = 12, face = "bold"),
+        axis.text.y = element_text(size = 10, face = "bold"))
+
+```
+
+
+\newpage
+
+
+## 7.10. Indigenous chickens
+
+
+```{r chicken}
+
+chic = data[, c(1, 7, 318, 396:422)]
+
+chic = chic[chic$how_many_indigenous_chickens_do_you_currently_own > 0,]
+
+```
+
+
+Indigenous chickens were kept by `r round(nrow(chic)*100/nrow(data), 1)`% of the households in Mbire at the time of the interview. 
+
+\
+
+
+```{r tab22}
+
+chic[, c(2, 3, 18:21, 28)] %>%
+  tbl_summary(
+    by = ward,
+    statistic = list(all_continuous() ~ "{mean} ({sd})",
+                     all_categorical() ~ "{p}%"),
+    missing = "no",
+    digits = all_continuous() ~ 1,
+    label = list(how_many_indigenous_chickens_do_you_currently_own ~ "Indigenous chickens (N°)",
+                 number_of_indigenous_chicken_births_or_purchases_in_the_past_12_months ~ "Indigenous chicken births & purchases (N°/yr)",
+                 number_of_indigenous_chicken_sold_or_slaughtered_in_the_past_12_months ~ "Indigenous chicken sold & slaughtered (N°/yr)",
+                 number_of_indigenous_chicken_deaths_in_the_past_12_months ~ "Indigenous chicken deaths (N°/yr)",
+                 number_of_indigenous_chicken_killed_by_wild_animals_in_the_past_12_months ~ "Indigenous chicken killed by wild animals (N°/yr)",
+                 x1st_choice_452 ~ "Main market"))%>%
+  add_overall()%>%
+  modify_caption("Characteristic of indigenous chicken farming")
+
+```
+
+
+```{r tab23}
+
+chic$stock_end = chic$how_many_indigenous_chickens_do_you_currently_own
+
+chic$stock_beginning = chic$stock_end - chic$number_of_indigenous_chicken_births_or_purchases_in_the_past_12_months +
+  chic$number_of_indigenous_chicken_sold_or_slaughtered_in_the_past_12_months +
+  chic$number_of_indigenous_chicken_deaths_in_the_past_12_months
+
+chic$stock_beginning = ifelse(chic$stock_beginning < 0, NA, chic$stock_beginning)
+
+chic$growth_rate = (chic$stock_end - chic$stock_beginning) * 100 / chic$stock_beginning
+
+chic$growth_rate = ifelse(chic$stock_beginning == 0, NA, chic$growth_rate)
+
+chic$offtake_rate = chic$number_of_indigenous_chicken_sold_or_slaughtered_in_the_past_12_months * 100 /
+  ((chic$stock_beginning + chic$stock_end) / 2)
+
+chic$death_rate = chic$number_of_indigenous_chicken_deaths_in_the_past_12_months * 100 /
+  ((chic$stock_beginning + chic$stock_end) / 2)
+
+chic[, c(2, 31, 33:35)] %>%
+  tbl_summary(
+    by = ward,
+    statistic = list(all_continuous() ~ "{mean} ({sd})",
+                     all_categorical() ~ "{p}%"),
+    missing = "no",
+    digits = all_continuous() ~ 1,
+    label = list(stock_end ~ "Current stock (N°)",
+                 growth_rate ~ "Growth rate (%)",
+                 offtake_rate ~ "Offtake rate (%)",
+                 death_rate ~ "Mortality rate (%)"))%>%
+  add_overall()%>%
+  modify_caption("Performance of indigenous chicken farming")
+
+```
+
+
+```{r fig24, fig.width = 5.5, fig.height = 3, fig.cap = "Feed composition of indigenous chickens during the wet season"}
+
+chic_wet = chic[, c(1:2, 4:10)]
+
+names(chic_wet) = c("ID", "Ward", "Free ranging", "Maize", "Sorghum", "Pearl millet",
+                    "Finger millet", "Commercial feed", "Household kitchen wastes")
+
+chic_wet = gather(chic_wet, ingredient, perc, "Free ranging":"Household kitchen wastes")
+
+chic_wet$perc = as.numeric(chic_wet$perc)
+chic_wet$perc = 100 * chic_wet$perc
+
+chic_wet = aggregate(perc ~ ingredient, FUN = mean, na.rm = TRUE, data = chic_wet)
+
+chic_wet = chic_wet[chic_wet$perc > 0,]
+
+ggplot(chic_wet, aes(x = "", y = perc, fill = ingredient)) + 
+  geom_bar(alpha = 0.5, width = 1, stat = "identity", color = "black") +
+  coord_polar("y", start = 0) + theme_few() + 
+  scale_fill_viridis_d(option = "B", name = "Ration") +
+  theme(plot.title = element_blank(),
+        axis.title.x = element_blank(),
+        axis.title.y = element_blank(),
+        panel.border = element_blank(),
+        panel.grid=element_blank(),  
+        axis.ticks = element_blank(),
+        axis.text = element_blank(),
+        legend.text = element_text(size = 10), 
+        legend.title = element_text(size = 12, face = "bold"),
+        legend.position = "right") 
+
+```
+
+
+```{r fig25, fig.width = 5.5, fig.height = 3, fig.cap = "Feed composition of indigenous chickens during the dry season"}
+
+chic_dry = chic[, c(1:2, 11:17)]
+
+names(chic_dry) = c("ID", "Ward", "Free ranging", "Maize", "Sorghum", "Pearl millet",
+                    "Finger millet", "Commercial feed", "Household kitchen wastes")
+
+chic_dry = gather(chic_dry, ingredient, perc, "Free ranging":"Household kitchen wastes")
+
+chic_dry$perc = as.numeric(chic_dry$perc)
+chic_dry$perc = 100 * chic_dry$perc
+
+chic_dry = aggregate(perc ~ ingredient, FUN = mean, na.rm = TRUE, data = chic_dry)
+
+chic_dry = chic_dry[chic_dry$perc > 0,]
+
+ggplot(chic_dry, aes(x = "", y = perc, fill = ingredient)) + 
+  geom_bar(alpha = 0.5, width = 1, stat = "identity", color = "black") +
+  coord_polar("y", start = 0) + theme_few() + 
+  scale_fill_viridis_d(option = "B", name = "Ration") +
+  theme(plot.title = element_blank(),
+        axis.title.x = element_blank(),
+        axis.title.y = element_blank(),
+        panel.border = element_blank(),
+        panel.grid=element_blank(),  
+        axis.ticks = element_blank(),
+        axis.text = element_blank(),
+        legend.text = element_text(size = 10), 
+        legend.title = element_text(size = 12, face = "bold"),
+        legend.position = "right") 
+
+```
+
+
+```{r fig26, fig.width = 8, fig.height = 2.5, fig.cap = "Major indigenous chickens diseases"}
+
+chic_dis1 = chic[, c(1:2, 22)]
+chic_dis2 = chic[, c(1:2, 23)]
+chic_dis3 = chic[, c(1:2, 24)]
+
+names(chic_dis1) = c("ID", "Ward", "Disease")
+names(chic_dis2) = c("ID", "Ward", "Disease")
+names(chic_dis3) = c("ID", "Ward", "Disease")
+
+chic_dis = rbind(chic_dis1, chic_dis2, chic_dis3)
+
+chic_dis$n = rep(1, nrow(chic_dis))
+
+chic_dis = aggregate(n ~ Disease, FUN = sum, na.rm = TRUE, data = chic_dis[, c(3:4)])
+
+chic_dis = chic_dis[which(chic_dis$Disease != "None"), ]
+
+chic_dis %>%
+  arrange(n) %>%
+  mutate(order = factor(Disease, Disease)) %>%
+  ggplot( aes(x = Disease, y = n)) + 
+  geom_segment( aes(x = order, xend = Disease, y = 0, yend = n), color = "#ED6925FF", linewidth = 1) +
+  geom_point(color="#ED6925FF", size = 8, alpha = 0.5) +
+  xlab("Major indigenous\nchicken diseases") + ylab("Nb of farms affected") +
+  theme_few() +
+  coord_flip() +
+  theme(axis.title.x = element_text(size = 14, face = "bold", margin = margin(10, 0, 0, 0)),
+        axis.title.y = element_text(size = 14, face = "bold", margin = margin(0, 10, 0, 0)),
+        axis.text.x = element_text(size = 12, face = "bold"),
+        axis.text.y = element_text(size = 10, face = "bold"))
+
+```
+
+
+```{r fig27, fig.width = 8, fig.height = 3, fig.cap = "Animals killing indigenous chickens"}
+
+chic_pest1 = chic[, c(1:2, 25)]
+chic_pest2 = chic[, c(1:2, 26)]
+chic_pest3 = chic[, c(1:2, 27)]
+
+names(chic_pest1) = c("ID", "Ward", "Pest")
+names(chic_pest2) = c("ID", "Ward", "Pest")
+names(chic_pest3) = c("ID", "Ward", "Pest")
+
+chic_pest = rbind(chic_pest1, chic_pest2, chic_pest3)
+
+chic_pest$n = rep(1, nrow(chic_pest))
+
+chic_pest = aggregate(n ~ Pest, FUN = sum, na.rm = TRUE, data = chic_pest[, c(3:4)])
+
+chic_pest = chic_pest[which(chic_pest$Pest != "None"), ]
+
+chic_pest %>%
+  arrange(n) %>%
+  mutate(order = factor(Pest, Pest)) %>%
+  ggplot( aes(x = Pest, y = n)) + 
+  geom_segment( aes(x = order, xend = Pest, y = 0, yend = n), color = "#781C6DFF", linewidth = 1) +
+  geom_point(color="#781C6DFF", size = 8, alpha = 0.5) +
+  xlab("Species predating\non indigenous chickens") + ylab("Nb of farms affected") +
+  theme_few() +
+  coord_flip() +
+  theme(axis.title.x = element_text(size = 14, face = "bold", margin = margin(10, 0, 0, 0)),
+        axis.title.y = element_text(size = 14, face = "bold", margin = margin(0, 10, 0, 0)),
+        axis.text.x = element_text(size = 12, face = "bold"),
+        axis.text.y = element_text(size = 10, face = "bold"))
+
+```
+
+
+\newpage
+
+
+## 7.11. Bee keeping
+
+
+```{r bee}
+
+bee = data[, c(1, 7, 327, 423:426)]
+
+bee = bee[bee$how_many_bee_hives_do_you_currently_own > 0,]
+
+```
+
+
+Bees were kept by `r round(nrow(bee)*100/nrow(data), 1)`% of the households in Mbire at the time of the interview. 
+
+\
+
+
+```{r tab24}
+
+bee = bee[bee$how_many_bee_hives_do_you_currently_own > 0,]
+
+bee[, c(2:5)] %>%
+  tbl_summary(
+    by = ward,
+    statistic = list(all_continuous() ~ "{mean} ({sd})",
+                     all_categorical() ~ "{p}%"),
+    type = list(how_many_bee_hives_do_you_currently_own	 ~ "continuous",
+                how_much_honey_did_you_produce_in_the_past_12_months_kg ~ "continuous"),
+    missing = "no",
+    digits = all_continuous() ~ 1,
+    label = list(how_many_bee_hives_do_you_currently_own ~ "Bee hives (N°)",
+             how_much_honey_did_you_produce_in_the_past_12_months_kg ~ "Honey production (kg/yr)",
+             x1st_choice_457 ~ "Main market"))%>%
+  add_overall()%>%
+  modify_caption("Characteristic of bee keeping")
+
+```
+
+
+\newpage
+
+
+# 8. Crop & livestock management
+
+## 8.1. Improved crop practices
+
+```{r tab25}
+
+imp_crp = data[, c(1, 7, 294:308)]
+
+names(imp_crp) = c("ID", "Ward",
+                   "Quality certified seeds", "Community seed banks", "Drought tolerant varieties",
+                   "Small grains", "Early planting", "Crop rotation", "Intercropping",
+                   "Cover crops", "Mulching", "Integrated pest management", "Compost and/or manure",
+                   "Drip- and/or micro-irrigation", "Optimum plant density", "Tree planting on-farm",
+                   "Tree retention on-farm")
+
+imp_crp[, c(2:17)] %>%
+  tbl_summary(
+    by = Ward,
+    statistic = list(all_continuous() ~ "{mean} ({sd})",
+                     all_categorical() ~ "{p}%"),
+    missing = "no",
+    digits = all_continuous() ~ 1)%>%
+  add_overall()%>%
+  modify_caption("Adoption of improved crop practices")
+
+```
+
+
+```{r fig28, fig.width = 8, fig.height = 4, fig.cap = "Adoption (%) of improved crop practices"}
+
+imp_crp_long = gather(imp_crp, practice, perc, "Quality certified seeds":"Tree retention on-farm")
+
+imp_crp_long$perc = as.numeric(imp_crp_long$perc == "Yes")
+
+imp_crp_long = aggregate(perc ~ practice, FUN = mean, na.rm = TRUE, data = imp_crp_long[, c(3:4)])
+
+imp_crp_long$perc = round(imp_crp_long$perc * 100, 1)
+
+names(imp_crp_long) = c("Practice", "Adopters")
+
+imp_crp_long$"Non-adopters" = 100 - imp_crp_long$Adopters
+
+imp_crp_long = gather(imp_crp_long, Category, Percentage, "Adopters":"Non-adopters")
+
+ggplot(imp_crp_long, aes(x = Practice, y = Category, fill = Category, size = Percentage)) +
+  geom_point(shape = 21, colour = "black", stroke = 1.1, alpha = 0.6) +
+  geom_text(aes(label = Percentage), colour = "black", size = 3) +
+  scale_size_continuous(range = c(5, 20)) + 
+  scale_fill_manual(values = c("#781C6DFF", "#ED6925FF")) +
+  theme_few() +
+  theme(legend.position = "none",
+        axis.title = element_blank(),
+        axis.text.x = element_text(colour = "black", size = 10, face = "bold", angle = 45, vjust = 1, hjust = 1),
+        axis.text.y = element_text(size = 12, face = "bold"))
+
+```
+
+
+\newpage
+
+
+## 8.2. Improved livestock practices
+
+```{r tab26}
+
+imp_liv = data[, c(1, 7, 427:443)]
+
+names(imp_liv) = c("ID", "Ward",
+                   "Improved livestock breed", "Improved animal shelter", "Water infrastructure",
+                   "Routine vaccination", "Home vaccination", "Castration", "Deworming",
+                   "Dipping", "Home spraying", "Paravet", "Homemade animal feed", "Fodder production",
+                   "Fodder preservation", "Survival feeding", "Commercial feed", "Artificial insemination",
+                   "Pen fattening")
+
+imp_liv[, c(2:19)] %>%
+  tbl_summary(
+    by = Ward,
+    statistic = list(all_continuous() ~ "{mean} ({sd})",
+                     all_categorical() ~ "{p}%"),
+    missing = "no",
+    digits = all_continuous() ~ 1)%>%
+  add_overall()%>%
+  modify_caption("Adoption of improved livestock practices")
+
+```
+
+
+```{r fig29, fig.width = 8, fig.height = 4, fig.cap = "Adoption (%) of improved livestock practices"}
+
+imp_liv_long = gather(imp_liv, practice, perc, "Improved livestock breed":"Pen fattening")
+
+imp_liv_long$perc = as.numeric(imp_liv_long$perc == "Yes")
+
+imp_liv_long = aggregate(perc ~ practice, FUN = mean, na.rm = TRUE, data = imp_liv_long[, c(3:4)])
+
+imp_liv_long$perc = round(imp_liv_long$perc * 100, 1)
+
+names(imp_liv_long) = c("Practice", "Adopters")
+
+imp_liv_long$"Non-adopters" = 100 - imp_liv_long$Adopters
+
+imp_liv_long = gather(imp_liv_long, Category, Percentage, "Adopters":"Non-adopters")
+
+ggplot(imp_liv_long, aes(x = Practice, y = Category, fill = Category, size = Percentage)) +
+  geom_point(shape = 21, colour = "black", stroke = 1.1, alpha = 0.6) +
+  geom_text(aes(label = Percentage), colour = "black", size = 3) +
+  scale_size_continuous(range = c(5, 20)) + 
+  scale_fill_manual(values = c("#781C6DFF", "#ED6925FF")) +
+  theme_few() +
+  theme(legend.position = "none",
+        axis.title = element_blank(),
+        axis.text.x = element_text(colour = "black", size = 10, face = "bold", angle = 45, vjust = 1, hjust = 1),
+        axis.text.y = element_text(size = 12, face = "bold"))
+
+```
+
+
+\newpage
+
+
+## 8.3. Intercropping
+
+
+```{r fig30, fig.width = 8, fig.height = 4, fig.cap = "Major intercrop species"}
+
+inter = data[, c(1, 7, 70:85)]
+
+inter = inter[which(inter$did_you_practice_intercropping_in_some_of_your_main_crops_during_the_season_2021_22 == "Yes"), ]
+
+names(inter) = c("ID", "Ward", "Intercropping", "Common bean", "Cowpea", "Groundnut",
+                 "Lablab", "Pigeonpea", "Mucuna", "Pumpkin", "Watermelon", "Local cucumber",
+                 "Sunflower", "Ocra", "Sweet sorghum", "Millet", "Maize", "Rosella")
+
+
+inter = gather(inter[, -c(1:3)], Intercrop, Presence, "Common bean":"Rosella")
+
+inter = aggregate(Presence ~ Intercrop, FUN = sum, na.rm = TRUE, data = inter)
+
+inter %>%
+  arrange(Presence) %>%
+  mutate(order = factor(Intercrop, Intercrop)) %>%
+  ggplot( aes(x = Intercrop, y = Presence)) + 
+  geom_segment( aes(x = order, xend = Intercrop, y = 0, yend = Presence), color = "#BB3754FF", linewidth = 1) +
+  geom_point(color="#BB3754FF", size = 8, alpha = 0.5) +
+  xlab("Intercrop species") + ylab("Nb of farms") +
+  theme_few() +
+  coord_flip() +
+  theme(axis.title.x = element_text(size = 14, face = "bold", margin = margin(10, 0, 0, 0)),
+        axis.title.y = element_text(size = 14, face = "bold", margin = margin(0, 10, 0, 0)),
+        axis.text.x = element_text(size = 12, face = "bold"),
+        axis.text.y = element_text(size = 10, face = "bold"))
+
+```
+
+
+## 8.4. Crop & livestock diversity
+
+
+```{r tab27}
+
+main_cp_div = land[, c(1:2, 5:26)]
+
+
+intercrop = data[, c(1, 7, 71:85)]
+
+names(intercrop) = c("ID", "ward", "common_bean_int", "cowpea_int", "groundnut_int", "lablab_int",
+                     "pigeonpea_int", "mucuna_int", "pumpkin_int", "watermelon_int",
+                     "local_cucumber_int", "sunflower_int", "ocra_int", "sweet_sprghum_int",
+                     "finger_millet_int", "maize_int", "rosella_int")
+
+
+igar_div = igar[, c(1:2, 11:41)]
+
+names(igar_div) = c("ID", "ward", "maize_igar", "common_bean_igar", "sweet_potato_igar", "tomato_igar", "onion_igar", "garlic_igar", "cabbage_igar",
+                    "rape_igar", "kovo_igar", "carrot_igar", "ocra_igar", "watermelon_igar", "cucumber_igar", "butternut_igar", "sugar_cane_igar",
+                    "banana_igar", "pawpaw_igar", "nartje_igar", "tsunga_igar", "potato_igar", "peas_igar", "african_rice_igar", "strawberry_igar",
+                    "wheat_igar", "sugarloaf_igar", "rugare_igar", "shoeshine_igar", "chigumbeze_igar", "katarina_igar", "muboora_igar",
+                    "chili_igar")
+
+
+cgar_div = cgar[, -c(3:5)]
+
+names(cgar_div) = c("ID", "ward", "maize_cgar", "common_bean_cgar", "sweet_potato_cgar", "tomato_cgar", "onion_cgar", "garlic_cgar", "cabbage_cgar",
+                    "rape_cgar", "kovo_cgar", "carrot_cgar", "ocra_cgar", "watermelon_cgar", "cucumber_cgar", "butternut_cgar", "sugar_cane_cgar",
+                    "banana_cgar", "pawpaw_cgar", "nartje_cgar", "guava_cgar", "ocra_cgar")
+
+cgar_div[is.na(cgar_div)] = 0
+
+
+cp_div = merge(main_cp_div, intercrop, by = c("ID", "ward"))
+cp_div = merge(cp_div, igar_div, by = c("ID", "ward"))
+cp_div = merge(cp_div, cgar_div, by = c("ID", "ward"))
+
+
+cp_div$common_bean = cp_div$common_bean + cp_div$common_bean_int + cp_div$common_bean_igar + cp_div$common_bean_cgar
+cp_div$cowpea = cp_div$cowpea + cp_div$cowpea_int
+cp_div$groundnut = cp_div$groundnut + cp_div$groundnut_int
+cp_div$potato = cp_div$potato + cp_div$potato_igar
+cp_div$lablab = cp_div$lablab + cp_div$lablab_int
+cp_div$pigeonpea = cp_div$pigeonpea + cp_div$pigeonpea_int
+cp_div$mucuna = cp_div$mucuna + cp_div$mucuna_int
+cp_div$pumpkin = cp_div$pumpkin + cp_div$pumpkin_int
+cp_div$watermelon = cp_div$watermelon_int + cp_div$watermelon_igar + cp_div$watermelon_cgar
+cp_div$local_cucumber = cp_div$local_cucumber_int
+cp_div$sunflower = cp_div$sunflower + cp_div$sunflower_int
+cp_div$ocra = cp_div$ocra_int + cp_div$ocra_igar + cp_div$ocra_cgar + cp_div$ocra_cgar.1
+cp_div$sweet_sorghum = cp_div$sweet_sprghum_int
+cp_div$finger_millet = cp_div$finger_millet + cp_div$finger_millet_int
+cp_div$maize = cp_div$maize + cp_div$maize_int + cp_div$maize_igar + cp_div$maize_cgar
+cp_div$rosella = cp_div$rosella + cp_div$rosella_int
+cp_div$sweet_potato = cp_div$sweet_potato + cp_div$sweet_potato_igar + cp_div$sweet_potato_cgar
+cp_div$tomato = cp_div$tomato_igar + cp_div$tomato_cgar
+cp_div$onion = cp_div$tomato_igar + cp_div$tomato_cgar
+cp_div$garlic = cp_div$garlic_igar + cp_div$garlic_cgar
+cp_div$cabbage = cp_div$cabbage_igar + cp_div$cabbage_cgar
+cp_div$rape = cp_div$rape_igar + cp_div$rape_cgar
+cp_div$kovo = cp_div$kovo_igar + cp_div$kovo_cgar
+cp_div$carrot = cp_div$carrot_igar + cp_div$carrot_cgar
+cp_div$cucumber = cp_div$cucumber_igar + cp_div$cucumber_cgar
+cp_div$butternut = cp_div$butternut_igar + cp_div$butternut_cgar
+cp_div$sugar_cane = cp_div$sugar_cane_igar + cp_div$sugar_cane_cgar
+cp_div$banana = cp_div$banana_igar + cp_div$banana_cgar
+cp_div$pawpaw = cp_div$pawpaw_igar + cp_div$pawpaw_cgar
+cp_div$nartje = cp_div$nartje_igar + cp_div$nartje_cgar
+cp_div$tsunga = cp_div$tsunga_igar
+cp_div$peas = cp_div$peas_igar
+cp_div$african_rice = cp_div$african_rice_igar
+cp_div$strawberry = cp_div$strawberry_igar
+cp_div$wheat = cp_div$wheat_igar
+cp_div$sugarloaf = cp_div$sugarloaf_igar
+cp_div$rugare = cp_div$rugare_igar
+cp_div$shoeshine = cp_div$shoeshine_igar
+cp_div$chigumbeze = cp_div$chigumbeze_igar
+cp_div$katarina = cp_div$katarina_igar
+cp_div$muboora = cp_div$muboora_igar
+cp_div$chili = cp_div$chili_igar
+
+
+cp_div = cp_div[, c(1:24, 91:119)]
+
+cp_div = gather(cp_div, crop, pres, "maize":"chili")
+
+cp_div$pres = ifelse(cp_div$pres > 0, 1, 0)
+
+cp_div = aggregate(pres ~ ID + ward, FUN = sum, na.rm = TRUE, data = cp_div[,c(1:2, 4)])
+
+names(cp_div)[3] = "crop_div"
+
+
+liv$goats = liv$how_many_indigenous_goats_do_you_currently_own + liv$how_many_improved_goats_do_you_currently_own
+
+liv$chicken = liv$how_many_indigenous_chickens_do_you_currently_own + liv$how_many_layer_chickens_do_you_currently_own +
+  liv$how_many_broiler_chickens_do_you_currently_own
+
+lv_div = liv[, c(1:2, 23, 7, 26, 10, 11, 27, 15:22)]
+
+names(lv_div) = c("ID", "ward", "cattle", "donkeys", "goats", "sheep", "pigs", "chicken",
+                  "guinea_fowls", "turkeys", "ducks", "geese", "pigeons", "rabbits",
+                  "bees", "fish")
+
+
+lv_div = gather(lv_div, species, pres, "cattle":"fish")
+
+lv_div$pres = ifelse(lv_div$pres > 0, 1, 0)
+
+lv_div = aggregate(pres ~ ID + ward, FUN = sum, na.rm = TRUE, data = lv_div[,c(1:2, 4)])
+
+names(lv_div)[3] = "liv_div"
+
+
+div = merge(cp_div, lv_div, by = c("ID", "ward"))
+
+div$tot_div = div$crop_div + div$liv_div
+
+
+div[, c(2, 5, 3, 4)] %>%
+  tbl_summary(
+    by = ward,
+    statistic = list(all_continuous() ~ "{mean} ({sd})",
+                     all_categorical() ~ "{p}%"),
+    missing = "no",
+    type = list(liv_div ~ "continuous"),
+    digits = all_continuous() ~ 1,
+    label = list(tot_div	 ~ "Total species diversity (n° species)",
+                 crop_div ~ "Crop diversity (n° species)",
+                 liv_div ~ "Livestock diversity (n° species)"))%>%
+  add_overall()%>%
+  modify_caption("Farm diversity")
+
+```
+
+
+\newpage
+
+
+## 8.5. Land management
+
+```{r tab28}
+
+land_mgt = data[, c(1, 7, 152:176)]
+
+land_mgt[, c(2:5, 24:27)] %>%
+  tbl_summary(
+    by = ward,
+    statistic = list(all_continuous() ~ "{mean} ({sd})",
+                     all_categorical() ~ "{p}%"),
+    type = list(area_ha_cleared_during_the_season_2021_22	 ~ "continuous"),
+    missing = "no",
+    digits = all_continuous() ~ 1,
+    label = list(did_you_open_up_new_fields_i_e_parcel_of_land_never_cultivated_before_in_the_last_5_years ~ "Clearing new fields in the past 5 years",
+                 did_you_open_up_new_fields_i_e_parcel_of_land_never_cultivated_before_during_the_season_2021_22 ~ "Clearing new fields during the last season",
+                 area_ha_cleared_during_the_season_2021_22 ~ "Area cleared during the last season (ha)",
+                 soil_fertility ~ "Change in soil fertility",
+                 soil_erosion ~ "Change in soil erosion",
+                 soil_compaction ~ "Change in soil compaction",
+                 tree_cover ~ "Change in tree cover"))%>%
+  add_overall()%>%
+  modify_caption("Land management & soil health")
+
+```
+
+
+```{r fig31, fig.width = 8, fig.height = 4, fig.cap = "Change in soil health"}
+
+land_mgt_long = land_mgt[, c(24:27)]
+
+names(land_mgt_long) = c("Soil fertility", "Soil erosion", "Soil compaction", "Tree cover")
+
+land_mgt_long = gather(land_mgt_long, Characteristic, Status, "Soil fertility":"Tree cover")
+
+land_mgt_long$Percentage = rep(1, nrow(land_mgt_long))
+
+land_mgt_long = aggregate(Percentage ~ Characteristic + Status, FUN = sum, na.rm = TRUE, data = land_mgt_long)
+
+land_mgt_long$Percentage = round((land_mgt_long$Percentage * 100) / nrow(data), 1)
+
+land_mgt_long$Status = ifelse(land_mgt_long$Status == "Deteriorating", "3.Deteriorating", land_mgt_long$Status)
+land_mgt_long$Status = ifelse(land_mgt_long$Status == "Stable", "2.Stable", land_mgt_long$Status)
+land_mgt_long$Status = ifelse(land_mgt_long$Status == "Improving", "1.Improving", land_mgt_long$Status)
+
+ggplot(data = land_mgt_long, aes(x = Characteristic , y = Percentage, fill = Status)) +
+  geom_bar(stat = "identity", width = 0.7, color = "black") + 
+  coord_flip() + theme_few() +
+  ylab("Percentage") + xlab("Characteristic") +
+  scale_fill_manual(values = c("#FCFFA4FF", "#ED6925FF", "#781C6DFF"),
+                      labels = c("Improving", "Stable", "Deteriorating")) +
+  theme(axis.title.x = element_text(size = 14, face = "bold", margin = margin(10, 0, 0, 0)),
+        axis.title.y = element_blank(),
+        axis.text.x = element_text(size = 10, face = "bold"),
+        axis.text.y = element_text(size = 12, face = "bold"),
+        legend.title = element_text(size = 14, face = "bold"),
+        legend.text = element_text(size = 12))
+
+```
+
+
+## 8.6. Soil fertility management
+
+```{r tab29}
+
+fert = data[, c(1, 7, 48:49, 178:181, 200:203)]
+
+fert <- fert %>% 
+  mutate_at(c("quantity_kg_of_basal_fertilizer_applied_to_maize_in_the_season_2021_22",
+              "quantity_kg_of_basal_fertilizer_applied_to_sorghum_in_the_season_2021_22",
+              "quantity_kg_of_topdressing_fertilizer_applied_to_maize_in_the_season_2021_22",
+              "quantity_kg_of_topdressing_fertilizer_applied_to_sorghum_in_the_season_2021_22",
+              "quantity_kg_of_manure_applied_to_maize_in_the_season_2021_22",
+              "quantity_kg_of_manure_applied_to_sorghum_in_the_season_2021_22",
+              "quantity_kg_of_compost_applied_to_maize_in_the_season_2021_22",
+              "quantity_kg_of_compost_applied_to_sorghum_in_the_season_2021_22"),
+            ~ replace_na(.,0))
+  
+
+fert$area = fert$area_ha_cropped_in_maize_during_the_season_2021_22 + fert$area_ha_cropped_in_sorghum_during_the_season_2021_22
+
+fert$"Basal fertilizer rate (kg/ha)" = (fert$quantity_kg_of_basal_fertilizer_applied_to_maize_in_the_season_2021_22 + fert$quantity_kg_of_basal_fertilizer_applied_to_sorghum_in_the_season_2021_22) /
+  fert$area
+
+fert$"Top-dressing fertilizer rate (kg/ha)" = (fert$quantity_kg_of_topdressing_fertilizer_applied_to_maize_in_the_season_2021_22 + fert$quantity_kg_of_topdressing_fertilizer_applied_to_sorghum_in_the_season_2021_22) /
+  fert$area
+
+fert$"Manure rate (kg/ha)" = (fert$quantity_kg_of_manure_applied_to_maize_in_the_season_2021_22 + fert$quantity_kg_of_manure_applied_to_sorghum_in_the_season_2021_22) /
+  fert$area
+
+fert$"Compost rate (kg/ha)" = (fert$quantity_kg_of_compost_applied_to_maize_in_the_season_2021_22 + fert$quantity_kg_of_compost_applied_to_sorghum_in_the_season_2021_22) /
+  fert$area
+
+
+fert[, c(2, 14:17)] %>%
+  tbl_summary(
+    by = ward,
+    statistic = list(all_continuous() ~ "{mean} ({sd})",
+                     all_categorical() ~ "{p}%"),
+    missing = "no",
+    type = list("Compost rate (kg/ha)" ~ "continuous"),
+    digits = all_continuous() ~ 1)%>%
+  add_overall()%>%
+  modify_caption("Soil fertility management")
+
+
+```
+
+
+\newpage
+
+
+# 9. Social capital
+
+## 9.1. Credits, loans & knowledge
+
+```{r tab30}
+
+soc_cap = data[, c(1, 7, 43:45, 479:496)]
+
+soc_cap[, c(2:5)] %>%
+  tbl_summary(
+    by = ward,
+    statistic = list(all_continuous() ~ "{mean} ({sd})",
+                     all_categorical() ~ "{p}%"),
+    missing = "no",
+    digits = all_continuous() ~ 1,
+    label = list(did_you_have_access_to_credit_in_the_last_12_months ~ "Access to credit",
+             do_you_belong_to_a_savings_and_loan_group ~ "Belonging to a saving & loan group",
+             x1st_choice_60 ~ "Main source of farming knowledge"))%>%
+ add_overall()%>%
+  modify_caption("Social capital")
+
+```
+
+
+```{r fig32, fig.width = 8, fig.height = 4, fig.cap = "Perceived relationships"}
+
+close = soc_cap[, c(6:11)]
+
+names(close) = c("Individuals from your community", "Individuals from another community",
+                 "Leaders of the community", "NGOs", "Local government officials",
+                 "National government officials")
+
+close = gather(close, Actor, Relationship, "Individuals from your community":"National government officials")
+
+close$Percentage = rep(1, nrow(close))
+
+close = aggregate(Percentage ~ Actor + Relationship, FUN = sum, na.rm = TRUE, data = close)
+
+close$Percentage = round((close$Percentage * 100) / nrow(data), 1)
+
+close$Relationship = ifelse(close$Relationship == "I don’t know", "5.I don’t know", close$Relationship)
+close$Relationship = ifelse(close$Relationship == "Not at all close", "4.Not at all close", close$Relationship)
+close$Relationship = ifelse(close$Relationship == "Not close", "3.Not close", close$Relationship)
+close$Relationship = ifelse(close$Relationship == "Close", "2.Close", close$Relationship)
+close$Relationship = ifelse(close$Relationship == "Very close", "1.Very close", close$Relationship)
+
+
+ggplot(data = close, aes(x = Actor , y = Percentage, fill = Relationship)) +
+  geom_bar(stat = "identity", width = 0.7, color = "black") + 
+  coord_flip() + theme_few() +
+  ylab("Percentage") + 
+  scale_fill_manual(values = c("#FCFFA4FF", "#F98C0AFF", "#BB3754FF", "#56106EFF", "grey"),
+                    labels = c("Very close", "Close", "Not close", "Not at all close", "I don't know")) +
+ theme(axis.title.x = element_text(size = 12, face = "bold", margin = margin(10, 0, 0, 0)),
+        axis.title.y = element_blank(),
+        axis.text.x = element_text(size = 10, face = "bold"),
+        axis.text.y = element_text(size = 10, face = "bold"),
+        legend.title = element_text(size = 12, face = "bold"),
+        legend.text = element_text(size = 10)) + 
+  guides(fill = guide_legend(title = "Perceived relationship"))
+
+```
+
+
+```{r fig33, fig.width = 8, fig.height = 4, fig.cap = "Help in difficult times"}
+
+help = soc_cap[, c(12:17)]
+  
+names(help) = c("Individuals from your community", "Individuals from another community",
+                  "Leaders of the community", "NGOs", "Local government officials",
+                  "National government officials")
+  
+help = gather(help, Actor, Resource, "Individuals from your community":"National government officials")
+
+help$Percentage = rep(1, nrow(help))
+  
+help = aggregate(Percentage ~ Actor + Resource, FUN = sum, na.rm = TRUE, data = help)
+  
+help$Percentage = round((help$Percentage * 100) / nrow(data), 1)
+  
+help$Resource = ifelse(help$Resource == "I don’t know", "3.I don’t know", help$Resource)
+help$Resource = ifelse(help$Resource == "No", "2.No", help$Resource)
+help$Resource = ifelse(help$Resource == "Yes", "1.Yes", help$Resource)
+  
+ggplot(data = help, aes(x = Actor , y = Percentage, fill = Resource)) +
+    geom_bar(stat = "identity", width = 0.7, color = "black") + 
+    coord_flip() + theme_few() +
+    ylab("Percentage") +
+  scale_fill_manual(values = c("#FCFFA4FF", "#BB3754FF", "grey"),
+                      labels = c("Yes", "No", "I don't know")) +
+    theme(axis.title.x = element_text(size = 12, face = "bold", margin = margin(10, 0, 0, 0)),
+        axis.title.y = element_blank(),
+        axis.text.x = element_text(size = 10, face = "bold"),
+        axis.text.y = element_text(size = 10, face = "bold"),
+        legend.title = element_text(size = 12, face = "bold"),
+        legend.text = element_text(size = 10)) +  
+    guides(fill = guide_legend(title = "Help in difficult times"))
+  
+
+```
+
+
+```{r fig34, fig.width = 8, fig.height = 4, fig.cap = "Being taken advantage of in difficult times"}
+
+trust = soc_cap[, c(18:23)]
+
+names(trust) = c("Individuals from your community", "Individuals from another community",
+                "Leaders of the community", "NGOs", "Local government officials",
+                "National government officials")
+
+trust = gather(trust, Actor, Advantage, "Individuals from your community":"National government officials")
+
+trust$Percentage = rep(1, nrow(trust))
+
+trust = aggregate(Percentage ~ Actor + Advantage, FUN = sum, na.rm = TRUE, data = trust)
+
+trust$Percentage = round((trust$Percentage * 100) / nrow(data), 1)
+
+trust$Advantage = ifelse(trust$Advantage == "I don’t know", "3.I don’t know", trust$Advantage)
+trust$Advantage = ifelse(trust$Advantage == "No", "2.No", trust$Advantage)
+trust$Advantage = ifelse(trust$Advantage == "Yes", "1.Yes", trust$Advantage)
+
+ggplot(data = trust, aes(x = Actor , y = Percentage, fill = Advantage)) +
+  geom_bar(stat = "identity", width = 0.7, color = "black") + 
+  coord_flip() + theme_few() +
+  ylab("Percentage") +
+  scale_fill_manual(values = c("#FCFFA4FF", "#BB3754FF", "grey"),
+                    labels = c("Yes", "No", "I don't know")) +
+  theme(axis.title.x = element_text(size = 12, face = "bold", margin = margin(10, 0, 0, 0)),
+        axis.title.y = element_blank(),
+        axis.text.x = element_text(size = 10, face = "bold"),
+        axis.text.y = element_text(size = 10, face = "bold"),
+        legend.title = element_text(size = 12, face = "bold"),
+        legend.text = element_text(size = 10)) + 
+  guides(fill = guide_legend(title = "Taking advantage of you\nin difficult times"))
+
+```
+
+
+\newpage
+
+
+# 10. Likelohood of transiting to agroecology
+
+```{r fig35, fig.width = 8, fig.height = 8, fig.cap = "Likelihood of transiting to agroecology"}
+
+Willingness = data[, c(497)]
+Percentage = rep(1, length(Willingness))
+risk = data.frame(Willingness, Percentage)
+
+risk = aggregate(Percentage ~ Willingness, FUN = sum, na.rm = TRUE, data = risk)
+
+risk$Percentage = round((risk$Percentage * 100) / nrow(data), 1)
+
+risk$Willingness = ifelse(risk$Willingness == "I don't know", "5.I don't know", risk$Willingness)
+risk$Willingness = ifelse(risk$Willingness == "Not at all willing to take risks", "4.Not at all willing to take risks", risk$Willingness)
+risk$Willingness = ifelse(risk$Willingness == "Somewhat not willing to take risks", "3.Somewhat not willing to take risks", risk$Willingness)
+risk$Willingness = ifelse(risk$Willingness == "Somewhat willing to take risks", "2.Somewhat willing to take risks", risk$Willingness)
+risk$Willingness = ifelse(risk$Willingness == "Very willing to take risks", "1.Very willing to take risks", risk$Willingness)
+
+p1 = ggplot(data = risk, aes(x = "" , y = Percentage, fill = Willingness)) +
+  geom_bar(stat = "identity", width = 0.7, color = "black") + 
+  coord_flip() + theme_few() +
+  ylab("Percentage") +
+  scale_fill_manual(values = c("#FCFFA4FF", "#F98C0AFF", "#BB3754FF", "#56106EFF", "grey"),
+                    labels = c("Very willing to take risks", "Somewhat willing to take risks", "Somewhat not willing to take risks", "Not at all willing to take risks", "I don't know")) +
+  theme(axis.title.x = element_text(size = 12, face = "bold", margin = margin(10, 0, 0, 0)),
+        axis.title.y = element_blank(),
+        axis.text.x = element_text(size = 10, face = "bold"),
+        axis.text.y = element_text(size = 12, face = "bold"),
+        legend.title = element_text(size = 8, face = "bold"),
+        legend.text = element_text(size = 8),
+        axis.ticks.y = element_blank()) + 
+  guides(fill = guide_legend(title = "Do you perceive yourself as someone who is willing to take risks", ncol = 2))
+
+
+Impatience = data[, c(498)]
+Percentage = rep(1, length(Impatience))
+impa = data.frame(Impatience, Percentage)
+
+impa = aggregate(Percentage ~ Impatience, FUN = sum, na.rm = TRUE, data = impa)
+
+impa$Percentage = round((impa$Percentage * 100) / nrow(data), 1)
+
+impa$Impatience = ifelse(impa$Impatience == "I don’t know", "5.I don’t know", impa$Impatience)
+impa$Impatience = ifelse(impa$Impatience == "Always prefer to have things now", "4.Always prefer to have things now", impa$Impatience)
+impa$Impatience = ifelse(impa$Impatience == "Can somewhat not wait to have things", "3.Can somewhat not wait to have things", impa$Impatience)
+impa$Impatience = ifelse(impa$Impatience == "Can somewhat wait to have things", "2.Can somewhat wait to have things", impa$Impatience)
+impa$Impatience = ifelse(impa$Impatience == "Willing to wait to have things", "1.Willing to wait to have things", impa$Impatience)
+
+p2 = ggplot(data = impa, aes(x = "" , y = Percentage, fill = Impatience)) +
+  geom_bar(stat = "identity", width = 0.7, color = "black") + 
+  coord_flip() + theme_few() +
+  ylab("Percentage") +
+  scale_fill_manual(values = c("#FCFFA4FF", "#F98C0AFF", "#BB3754FF", "#56106EFF", "grey"),
+                    labels = c("Willing to wait to have things", "Can somewhat wait to have things", "Can somewhat not wait to have things", "Always prefer to have things now", "I don’t know")) +
+  theme(axis.title.x = element_text(size = 12, face = "bold", margin = margin(10, 0, 0, 0)),
+        axis.title.y = element_blank(),
+        axis.text.x = element_text(size = 10, face = "bold"),
+        axis.text.y = element_text(size = 12, face = "bold"),
+        legend.title = element_text(size = 8, face = "bold"),
+        legend.text = element_text(size = 8),
+        axis.ticks.y = element_blank()) + 
+  guides(fill = guide_legend(title = "Do you perceive yourself as someone who is generally impatient", ncol = 2))
+
+
+Wellbeing = data[, c(499)]
+Percentage = rep(1, length(Wellbeing))
+well = data.frame(Wellbeing, Percentage)
+
+well = aggregate(Percentage ~ Wellbeing, FUN = sum, na.rm = TRUE, data = well)
+
+well$Percentage = round((well$Percentage * 100) / nrow(data), 1)
+
+well$Wellbeing = ifelse(well$Wellbeing == "I don’t know", "5.I don’t know", well$Wellbeing)
+well$Wellbeing = ifelse(well$Wellbeing == "Not at all, I always think about myself", "4.Not at all, I always think about myself", well$Wellbeing)
+well$Wellbeing = ifelse(well$Wellbeing == "Sometimes, I think about myself", "3.Sometimes, I think about myself", well$Wellbeing)
+well$Wellbeing = ifelse(well$Wellbeing == "Sometimes, I think about others", "2.Sometimes, I think about others", well$Wellbeing)
+well$Wellbeing = ifelse(well$Wellbeing == "I always think about others first", "1.I always think about others first", well$Wellbeing)
+
+p3 = ggplot(data = well, aes(x = "" , y = Percentage, fill = Wellbeing)) +
+  geom_bar(stat = "identity", width = 0.7, color = "black") + 
+  coord_flip() + theme_few() +
+  ylab("Percentage") +
+  scale_fill_manual(values = c("#FCFFA4FF", "#F98C0AFF", "#BB3754FF", "#56106EFF", "grey"),
+                    labels = c("I always think about others first", "Sometimes, I think about others", "Sometimes, I think about myself", "I always think about myself", "I don’t know")) +
+  theme(axis.title.x = element_text(size = 12, face = "bold", margin = margin(10, 0, 0, 0)),
+        axis.title.y = element_blank(),
+        axis.text.x = element_text(size = 10, face = "bold"),
+        axis.text.y = element_text(size = 12, face = "bold"),
+        legend.title = element_text(size = 8, face = "bold"),
+        legend.text = element_text(size = 8),
+        axis.ticks.y = element_blank()) + 
+  guides(fill = guide_legend(title = "Do you generally think of the well-being of others", ncol = 2))
+
+
+Contract = data[, c(500)]
+Percentage = rep(1, length(Contract))
+cont = data.frame(Contract, Percentage)
+
+cont = aggregate(Percentage ~ Contract, FUN = sum, na.rm = TRUE, data = cont)
+
+cont$Percentage = round((cont$Percentage * 100) / nrow(data), 1)
+
+cont$Contract = ifelse(cont$Contract == "I don’t know", "5.I don’t know", cont$Contract)
+cont$Contract = ifelse(cont$Contract == "I can never sign up", "4.I can never sign up", cont$Contract)
+cont$Contract = ifelse(cont$Contract == "Somewhat unlikely to sign up", "3.Somewhat unlikely to sign up", cont$Contract)
+cont$Contract = ifelse(cont$Contract == "Somewhat likely to sign up", "2.Somewhat likely to sign up", cont$Contract)
+cont$Contract = ifelse(cont$Contract == "I can sign up", "1.I can sign up", cont$Contract)
+
+p4 = ggplot(data = cont, aes(x = "" , y = Percentage, fill = Contract)) +
+  geom_bar(stat = "identity", width = 0.7, color = "black") + 
+  coord_flip() + theme_few() +
+  ylab("Percentage") +
+  scale_fill_manual(values = c("#FCFFA4FF", "#F98C0AFF", "#BB3754FF", "#56106EFF", "grey"),
+                    labels = c("I can sign up", "Somewhat likely to sign up", "Somewhat unlikely to sign up", "I can never sign up", "I don’t know")) +
+  theme(axis.title.x = element_text(size = 12, face = "bold", margin = margin(10, 0, 0, 0)),
+        axis.title.y = element_blank(),
+        axis.text.x = element_text(size = 10, face = "bold"),
+        axis.text.y = element_text(size = 12, face = "bold"),
+        legend.title = element_text(size = 8, face = "bold"),
+        legend.text = element_text(size = 8),
+        axis.ticks.y = element_blank()) + 
+  guides(fill = guide_legend(title = "Signing for agroecological contract farming", ncol = 2))
+
+
+Market = data[, c(501)]
+Percentage = rep(1, length(Market))
+mark = data.frame(Market, Percentage)
+
+mark = aggregate(Percentage ~ Market, FUN = sum, na.rm = TRUE, data = mark)
+
+mark$Percentage = round((mark$Percentage * 100) / nrow(data), 1)
+
+mark$Market = ifelse(mark$Market == "I don’t know", "5.I don’t know", mark$Market)
+mark$Market = ifelse(mark$Market == "I can never change", "4.I can never change", mark$Market)
+mark$Market = ifelse(mark$Market == "Somewhat unlikely to change", "3.Somewhat unlikely to change", mark$Market)
+mark$Market = ifelse(mark$Market == "Somewhat likely to change", "2.Somewhat likely change", mark$Market)
+mark$Market = ifelse(mark$Market == "I can change", "1.I can change", mark$Market)
+
+p5 = ggplot(data = mark, aes(x = "" , y = Percentage, fill = Market)) +
+  geom_bar(stat = "identity", width = 0.7, color = "black") + 
+  coord_flip() + theme_few() +
+  ylab("Percentage") +
+  scale_fill_manual(values = c("#FCFFA4FF", "#F98C0AFF", "#BB3754FF", "#56106EFF", "grey"),
+                    labels = c("I can change", "Somewhat likely to change", "Somewhat unlikely to change", "I can never change", "I don’t know")) +
+  theme(axis.title.x = element_text(size = 12, face = "bold", margin = margin(10, 0, 0, 0)),
+        axis.title.y = element_blank(),
+        axis.text.x = element_text(size = 10, face = "bold"),
+        axis.text.y = element_text(size = 12, face = "bold"),
+        legend.title = element_text(size = 8, face = "bold"),
+        legend.text = element_text(size = 8),
+        axis.ticks.y = element_blank()) + 
+  guides(fill = guide_legend(title = "Changing to agroecology if there is a market", ncol = 2))
+
+
+Policy = data[, c(502)]
+Percentage = rep(1, length(Policy))
+pol = data.frame(Policy, Percentage)
+
+pol = aggregate(Percentage ~ Policy, FUN = sum, na.rm = TRUE, data = pol)
+
+pol$Percentage = round((pol$Percentage * 100) / nrow(data), 1)
+
+pol$Policy = ifelse(pol$Policy == "I don’t know", "5.I don’t know", pol$Policy)
+pol$Policy = ifelse(pol$Policy == "I can never change", "4.I can never change", pol$Policy)
+pol$Policy = ifelse(pol$Policy == "Somewhat unlikely to change", "3.Somewhat unlikely to change", pol$Policy)
+pol$Policy = ifelse(pol$Policy == "Somewhat likely to change", "2.Somewhat likely change", pol$Policy)
+pol$Policy = ifelse(pol$Policy == "I can change", "1.I can change", pol$Policy)
+
+p6 = ggplot(data = pol, aes(x = "" , y = Percentage, fill = Policy)) +
+  geom_bar(stat = "identity", width = 0.7, color = "black") + 
+  coord_flip() + theme_few() +
+  ylab("Percentage") +
+  scale_fill_manual(values = c("#FCFFA4FF", "#F98C0AFF", "#BB3754FF", "#56106EFF", "grey"),
+                    labels = c("I can change", "Somewhat likely to change", "Somewhat unlikely to change", "I can never change", "I don’t know")) +
+  theme(axis.title.x = element_text(size = 12, face = "bold", margin = margin(10, 0, 0, 0)),
+        axis.title.y = element_blank(),
+        axis.text.x = element_text(size = 10, face = "bold"),
+        axis.text.y = element_text(size = 12, face = "bold"),
+        legend.title = element_text(size = 8, face = "bold"),
+        legend.text = element_text(size = 8),
+        axis.ticks.y = element_blank()) + 
+  guides(fill = guide_legend(title = "Changing to agroecology if there is a policy directive", ncol = 2))
+
+
+Premium = data[, c(503)]
+Percentage = rep(1, length(Premium))
+prem = data.frame(Premium, Percentage)
+
+prem = aggregate(Percentage ~ Premium, FUN = sum, na.rm = TRUE, data = prem)
+
+prem$Percentage = round((prem$Percentage * 100) / nrow(data), 1)
+
+prem$Premium = ifelse(prem$Premium == "I don’t know", "7.I don’t know", prem$Premium)
+prem$Premium = ifelse(prem$Premium == "0", "6.0", prem$Premium)
+prem$Premium = ifelse(prem$Premium == "5 to 10%", "5.11 to 15%", prem$Premium)
+prem$Premium = ifelse(prem$Premium == "11 to 15%", "4.11 to 15%", prem$Premium)
+prem$Premium = ifelse(prem$Premium == "16 to 49%", "3.16 to 49%", prem$Premium)
+prem$Premium = ifelse(prem$Premium == "50 to 75%", "2.50 to 75%", prem$Premium)
+prem$Premium = ifelse(prem$Premium == "More than 75%", "1.More than 75%", prem$Premium)
+
+
+p7 = ggplot(data = prem, aes(x = "" , y = Percentage, fill = Premium)) +
+  geom_bar(stat = "identity", width = 0.7, color = "black") + 
+  coord_flip() + theme_few() +
+  ylab("Percentage") +
+  scale_fill_manual(values = c("#FCFFA4FF", "#FCB519FF", "#ED6925FF", "#BB3754FF", "#781C6DFF", "#330A5FFF", "grey"),
+                    labels = c("More than 75%", "50 to 75%", "16 to 49%", "11 to 15%", "5 to 10%", "0", "I don’t know")) +
+  theme(axis.title.x = element_text(size = 12, face = "bold", margin = margin(10, 0, 0, 0)),
+        axis.title.y = element_blank(),
+        axis.text.x = element_text(size = 10, face = "bold"),
+        axis.text.y = element_text(size = 12, face = "bold"),
+        legend.title = element_text(size = 8, face = "bold"),
+        legend.text = element_text(size = 8),
+        axis.ticks.y = element_blank()) + 
+  guides(fill = guide_legend(title = "Kind of premium you are ready to pay for agroecological goods", ncol = 2))
+
+
+fig1 = ggarrange(p1 + theme(axis.title.x = element_blank()),
+                p2 + theme(axis.title.x = element_blank()),
+                p3 + theme(axis.title.x = element_blank()),
+                p4 + theme(axis.title.x = element_blank()),
+                p5 + theme(axis.title.x = element_blank()),
+                p6 + theme(axis.title.x = element_blank()), p7,  
+                  ncol = 1, nrow = 7, widths=c(1), heights=c(1, 1, 1, 1, 1, 1, 1)) 
+
+```
+
+
+\newpage
+
+
+# 11. Disruptions
+
+## 11.1. COVID-19
+
+```{r fig36, fig.width = 8, fig.height = 6, fig.cap = "Disruptions due to COVID-19"}
+
+cov = data[, c(1, 7, 504:506)]
+
+cov$impact = ifelse(cov$x1st_choice_547 == "None", "Not impacted", "Impacted")
+
+cov$Percentage = rep(1, nrow(cov))
+
+cov_imp = aggregate(Percentage ~ impact, FUN = sum, na.rm = TRUE, data = cov)
+
+cov_imp$Percentage = round((cov_imp$Percentage * 100) / nrow(data), 1)
+
+p8 = ggplot(data = cov_imp, aes(x = "" , y = Percentage, fill = impact)) +
+  geom_bar(stat = "identity", width = 0.7, color = "black") + 
+  coord_flip() + theme_few() +
+  ylab("Percentage") +
+  scale_fill_manual(values = c("#FCFFA4FF", "#BB3754FF")) +
+  theme(axis.title.x = element_text(size = 14, face = "bold", margin = margin(10, 0, 0, 0)),
+        axis.title.y = element_blank(),
+        axis.text.x = element_text(size = 10, face = "bold"),
+        axis.text.y = element_text(size = 12, face = "bold"),
+        legend.title = element_text(size = 12, face = "bold"),
+        legend.text = element_text(size = 10),
+        axis.ticks.y = element_blank(),
+        legend.position = "left") + 
+  guides(fill = guide_legend(title = "Disruption due\nto COVID-19"))
+
+
+cov_dis1 = cov[, c(1:2, 3)]
+cov_dis2 = cov[, c(1:2, 4)]
+cov_dis3 = cov[, c(1:2, 5)]
+
+names(cov_dis1) = c("ID", "Ward", "Disruption")
+names(cov_dis2) = c("ID", "Ward", "Disruption")
+names(cov_dis3) = c("ID", "Ward", "Disruption")
+
+cov_dis = rbind(cov_dis1, cov_dis2, cov_dis3)
+
+cov_dis$n = rep(1, nrow(cov_dis))
+
+cov_dis = aggregate(n ~ Disruption, FUN = sum, na.rm = TRUE, data = cov_dis[, c(3:4)])
+
+cov_dis = cov_dis[which(cov_dis$Disruption != "None"), ]
+
+p9 = cov_dis %>%
+  arrange(n) %>%
+  mutate(order = factor(Disruption, Disruption)) %>%
+  ggplot( aes(x = Disruption, y = n)) + 
+  geom_segment( aes(x = order, xend = Disruption, y = 0, yend = n), color = "#781C6DFF", linewidth = 1) +
+  geom_point(color="#781C6DFF", size = 8, alpha = 0.5) +
+  xlab("Perceived disruptions due to COVID-19") + ylab("Nb of farms affected") +
+  theme_few() +
+  coord_flip() +
+  theme(axis.title.x = element_text(size = 14, face = "bold", margin = margin(10, 0, 0, 0)),
+        axis.title.y = element_text(size = 14, face = "bold", margin = margin(0, 10, 0, 0)),
+        axis.text.x = element_text(size = 12, face = "bold"),
+        axis.text.y = element_text(size = 10, face = "bold"))
+
+
+fig2 = ggarrange(p8, p9,  
+                 ncol = 1, nrow = 2, widths=c(1), heights = c(1, 3)) 
+
+```
+
+
+\newpage
+
+
+## 11.2. Ukraine-Russia war
+
+```{r fig37, fig.width = 8, fig.height = 6, fig.cap = "Disruptions due to the Ukraine-Russia war"}
+
+urw = data[, c(1, 7, 507:511)]
+
+names(urw)[4] = "Impact"
+
+urw$Impact = ifelse(is.na(urw$Impact), "Not aware of the Ukraine-\nRussia war", urw$Impact)
+urw$Impact = ifelse(urw$Impact == "No", "Aware of the Ukraine-\nRussia war but not impacted", urw$Impact)
+urw$Impact = ifelse(urw$Impact == "Yes", "Aware of the Ukraine-\nRussia war and impacted", urw$Impact)
+
+urw$Percentage = rep(1, nrow(urw))
+
+urw_imp = aggregate(Percentage ~ Impact, FUN = sum, na.rm = TRUE, data = urw)
+
+urw_imp$Percentage = round((urw_imp$Percentage * 100) / nrow(data), 1)
+
+p10 = ggplot(data = urw_imp, aes(x = "" , y = Percentage, fill = Impact)) +
+  geom_bar(stat = "identity", width = 0.7, color = "black") + 
+  coord_flip() + theme_few() +
+  ylab("Percentage") +
+  scale_fill_manual(values = c("#FCFFA4FF", "#ED6925FF", "#781C6DFF")) +
+  theme(axis.title.x = element_text(size = 14, face = "bold", margin = margin(10, 0, 0, 0)),
+        axis.title.y = element_blank(),
+        axis.text.x = element_text(size = 10, face = "bold"),
+        axis.text.y = element_text(size = 12, face = "bold"),
+        legend.title = element_text(size = 12, face = "bold"),
+        legend.text = element_text(size = 10),
+        axis.ticks.y = element_blank(),
+        legend.position = "left") + 
+  guides(fill = guide_legend(title = "Disruption due to\nthe Ukraine-Russia war"))
+
+
+urw_dis1 = urw[, c(1:2, 5)]
+urw_dis2 = urw[, c(1:2, 6)]
+urw_dis3 = urw[, c(1:2, 7)]
+
+names(urw_dis1) = c("ID", "Ward", "Disruption")
+names(urw_dis2) = c("ID", "Ward", "Disruption")
+names(urw_dis3) = c("ID", "Ward", "Disruption")
+
+urw_dis = rbind(urw_dis1, urw_dis2, urw_dis3)
+
+urw_dis$n = rep(1, nrow(urw_dis))
+
+urw_dis = aggregate(n ~ Disruption, FUN = sum, na.rm = TRUE, data = urw_dis[, c(3:4)])
+
+urw_dis = urw_dis[which(urw_dis$Disruption != "None"), ]
+
+p11 = urw_dis %>%
+  arrange(n) %>%
+  mutate(order = factor(Disruption, Disruption)) %>%
+  ggplot( aes(x = Disruption, y = n)) + 
+  geom_segment( aes(x = order, xend = Disruption, y = 0, yend = n), color = "#781C6DFF", linewidth = 1) +
+  geom_point(color="#781C6DFF", size = 8, alpha = 0.5) +
+  xlab("Perceived disruptions due to\nthe Ukraine-Russia war") + ylab("Nb of farms affected") +
+  theme_few() +
+  coord_flip() +
+  theme(axis.title.x = element_text(size = 14, face = "bold", margin = margin(10, 0, 0, 0)),
+        axis.title.y = element_text(size = 14, face = "bold", margin = margin(0, 10, 0, 0)),
+        axis.text.x = element_text(size = 12, face = "bold"),
+        axis.text.y = element_text(size = 10, face = "bold"))
+
+
+fig3 = ggarrange(p10, p11,  
+                 ncol = 1, nrow = 2, widths=c(1), heights = c(1.5, 2.5)) 
+
+```
+
+
